@@ -583,7 +583,7 @@ def show_string_processing():
             )
 
         with col2:
-            n_bins = st.slider("Număr bins:", 2, 100, 5)
+            n_bins = st.slider("Număr bins:", 1, 100, 5)
 
         use_labels = st.checkbox("Folosește labels custom", value=False)
 
