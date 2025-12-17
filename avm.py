@@ -28,16 +28,17 @@ def load_data_from_csv(uploaded_file):
     df = pd.read_csv(uploaded_file)
     return df
 def sidebar_navigation():
-    st.sidebar.markdown("#  Seminar AVM")
+    st.sidebar.markdown("#  Proiect MAIA")
     st.sidebar.markdown("### Navighează:")
 
     sections = [
-        " Încărcare Date",
-        " Curățarea Datelor",
-        " Detectarea Valorilor Anormale",
-        " Prelucrarea Șirurilor de Caractere",
-        " Standardizare și Normalizare",
-        " Statistici Descriptive"
+        " Incarcare date",
+        " Curatarea datelor",
+        " Detectarea valorilor anormale",
+        " Prelucrarea sirurilor de caractere",
+        " Standardizare si normalizare",
+        " Statistici descriptive",
+        " Reprezentari grafice"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -49,7 +50,7 @@ def sidebar_navigation():
 # Date
 def show_data_connection():
     st.markdown('<h1 class="main-header"> Încărcare Date</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Alternativă: Încarcă datele dintr-un fișier CSV</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Încarcă datele dintr-un fișier CSV</div>', unsafe_allow_html=True)
 
     with st.expander(" Încarcă fișier CSV (fără MongoDB)"):
         uploaded_csv = st.file_uploader("Alege fișierul CSV:", type=["csv"])
@@ -72,7 +73,7 @@ def show_data_connection():
         df = st.session_state['df']
         collection = st.session_state.get('collection_name', 'unknown')
 
-        st.markdown('<div class="sub-header">Pasul 3: Explorarea Datelor Încărcate</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sub-header">Explorarea Datelor Încărcate</div>', unsafe_allow_html=True)
 
         # Data overview
         col1, col2, col3, col4 = st.columns(4)
@@ -208,7 +209,7 @@ def show_data_cleaning():
     df = st.session_state['df'].copy()
 
     # Eliminarea duplicatelor
-    st.markdown('<div class="sub-header">Metoda 1: Eliminarea Duplicatelor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Eliminarea Duplicatelor</div>', unsafe_allow_html=True)
     st.markdown("### Găsește și Elimină Duplicate")
 
     # Select columns for duplicate check
@@ -350,7 +351,7 @@ def show_outlier_detection():
         st.error("Nu există coloane numerice în dataset!")
         return
 
-    st.markdown('<div class="sub-header">Metoda 1: Analiză cu Histogramă</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Analiză cu Histogramă</div>', unsafe_allow_html=True)
 
     col_for_hist = st.selectbox("Selectează coloana pentru histogramă:", numeric_cols, key="hist_col")
 
@@ -382,7 +383,7 @@ def show_outlier_detection():
         })
         st.dataframe(stats_df, use_container_width=True)
 
-    st.markdown('<div class="sub-header">Metoda 2: Box Plot</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Box Plot</div>', unsafe_allow_html=True)
 
     col_for_box = st.selectbox("Selectează coloana pentru box plot:", numeric_cols, key="box_col")
 
@@ -458,7 +459,7 @@ def show_outlier_detection():
         st.session_state['df_filtered'] = df_filtered
         st.success(f" Eliminate {n_removed} valori outlier!")
 
-    st.markdown('<div class="sub-header">Metoda 4: Variabile Categorice</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Variabile Categorice</div>', unsafe_allow_html=True)
 
     cat_cols = df.select_dtypes(include=['object']).columns.tolist()
 
@@ -501,7 +502,7 @@ def show_outlier_detection():
             }), use_container_width=True)
 
 def show_string_processing():
-    st.markdown('<h1 class="main-header">Prelucrarea Șirurilor de Caractere</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header"> Prelucrarea Șirurilor de Caractere</h1>', unsafe_allow_html=True)
 
     df = st.session_state['df'].copy()
     cat_cols = df.select_dtypes(include=['object']).columns.tolist()
@@ -509,7 +510,7 @@ def show_string_processing():
     if not cat_cols:
         st.error("Nu există coloane text în dataset!")
         return
-    st.markdown('<div class="sub-header"> Label Encoding</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Label Encoding</div>', unsafe_allow_html=True)
 
     st.markdown("### Transformă Categorii în Numere")
 
@@ -562,7 +563,7 @@ def show_string_processing():
                 st.dataframe(sample_df, use_container_width=True)
 
 
-    st.markdown('<div class="sub-header"> Discretizare (Binning)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Discretizare</div>', unsafe_allow_html=True)
 
 
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -1063,18 +1064,74 @@ def show_descriptive_statistics():
         strong_corr_df = pd.DataFrame(strong_corr).sort_values('Corelație', key=abs, ascending=False)
         st.dataframe(strong_corr_df, use_container_width=True)
 
+
+def show_graphical_representations():
+    st.markdown('<h1 class="main-header"> Reprezentari grafice</h1>', unsafe_allow_html=True)
+
+    df = st.session_state['df'].copy()
+
+    # Găsește coloane necesare
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    st.markdown('<div class="sub-header">Box Plot - Comparatii pe grupuri</div>', unsafe_allow_html=True)
+
+    if not numeric_cols:
+        st.error("Nu există coloane numerice în dataset!")
+        return
+
+    if not cat_cols:
+        st.error("Nu există coloane categorice în dataset!")
+        return
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        box_y = st.selectbox("Variabila numerică (Y):", numeric_cols, key="box_y")
+
+    with col2:
+        box_x = st.selectbox("Grupare (X):", cat_cols, key="box_x")
+
+    box_color = st.selectbox(
+        "Culoare pe categorie (opțional):",
+        [None] + cat_cols,
+        key="box_color"
+    )
+
+    try:
+        fig = px.box(
+            df,
+            x=box_x,
+            y=box_y,
+            color=box_color if box_color else box_x,
+            title=f'Box Plot: {box_y} pe {box_x}',
+            points='outliers'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Statistics by group
+        with st.expander("Statistici pe Grupuri"):
+            stats = df.groupby(box_x)[box_y].describe()
+            st.dataframe(stats, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Eroare la generarea graficului: {str(e)}")
+        st.info("Verifica daca exista valori valide in coloanele selectate.")
+
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
 
-    if selected_module == " Încărcare Date":
+    if selected_module == " Incarcare date":
         show_data_connection()
-    elif selected_module == " Curățarea Datelor":
+    elif selected_module == " Curatarea datelor":
         show_data_cleaning()
-    elif selected_module == " Detectarea Valorilor Anormale":
+    elif selected_module == " Detectarea valorilor anormale":
         show_outlier_detection()
-    elif selected_module == " Prelucrarea Șirurilor de Caractere":
+    elif selected_module == " Prelucrarea sirurilor de caractere":
         show_string_processing()
-    elif selected_module == " Standardizare și Normalizare":
+    elif selected_module == " Standardizare si normalizare":
         show_standardization()
-    elif selected_module == " Statistici Descriptive":
+    elif selected_module == " Statistici descriptive":
         show_descriptive_statistics()
+    elif selected_module == " Reprezentari grafice":
+        show_graphical_representations()
