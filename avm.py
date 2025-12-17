@@ -22,6 +22,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown("""
+<style>
+    body, .stApp {
+        background-color: #0B3D91;  
+    }
+    .main-header, .sub-header, .method-box, .why-box, .theory-box, .code-explanation, .success-box, 
+    .stMarkdown, .stText {
+        color: #DA70D6;  
+    }
+</style>
+""", unsafe_allow_html=True)
+
 @st.cache_data(ttl=3600)
 def load_data_from_csv(uploaded_file):
     """Încarcă datele dintr-un fișier CSV încărcat în Streamlit."""
