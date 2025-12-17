@@ -36,7 +36,8 @@ def sidebar_navigation():
         " Curățarea Datelor",
         " Detectarea Valorilor Anormale",
         " Prelucrarea Șirurilor de Caractere",
-        " Standardizare și Normalizare"
+        " Standardizare și Normalizare",
+        " Statistici Descriptive"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -876,8 +877,191 @@ def show_standardization():
                 st.markdown("### Statistici Comparative")
                 st.dataframe(stats_comparison, use_container_width=True)
 
+def show_descriptive_statistics():
+    st.markdown('<h1 class="main-header"> Statistici Descriptive</h1>', unsafe_allow_html=True)
 
+    df = st.session_state['df'].copy()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 
+    if not numeric_cols:
+        st.error("Nu există coloane numerice în dataset!")
+        return
+
+    st.markdown('<div class="sub-header">Agregări</div>', unsafe_allow_html=True)
+
+    st.markdown("### Statistici Comprehensive")
+
+    # Full describe
+    st.markdown("#### Toate Coloanele Numerice")
+    desc_df = df[numeric_cols].describe()
+    st.dataframe(desc_df, use_container_width=True)
+
+    # Custom percentiles
+    with st.expander("Percentile Custom"):
+        percentiles_input = st.text_input(
+            "Percentile (0-100, separate prin virgulă):",
+            value="1, 10, 25, 50, 75, 90, 99"
+        )
+
+        try:
+            percentiles = [float(p.strip()) / 100 for p in percentiles_input.split(',')]
+            custom_desc = df[numeric_cols].describe(percentiles=percentiles)
+            st.dataframe(custom_desc, use_container_width=True)
+        except:
+            st.error("Format invalid! Folosește numere separate prin virgulă.")
+
+    st.markdown('<div class="sub-header">Skewness</div>', unsafe_allow_html=True)
+
+    st.markdown("### Calculează Skewness")
+
+    # Calculate skewness
+    skewness = df[numeric_cols].skew()
+    skewness_df = pd.DataFrame({
+        'Coloană': skewness.index,
+        'Skewness': skewness.values,
+        'Interpretare': skewness.apply(lambda x:
+                                       'Simetrică' if abs(x) < 0.5 else
+                                       'Moderat înclinată dreapta' if 0.5 <= x < 1 else
+                                       'Foarte înclinată dreapta' if x >= 1 else
+                                       'Moderat înclinată stânga' if -1 < x <= -0.5 else
+                                       'Foarte înclinată stânga'
+                                       ).values
+    }).sort_values('Skewness', key=abs, ascending=False)
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Plot skewness
+        fig = px.bar(
+            skewness_df,
+            x='Coloană',
+            y='Skewness',
+            color='Interpretare',
+            title='Skewness pe Coloane',
+            text='Skewness'
+        )
+        fig.update_traces(texttemplate='%{text:.3f}', textposition='outside')
+        fig.add_hline(y=0, line_dash="dash", line_color="black")
+        fig.add_hline(y=0.5, line_dash="dot", line_color="green", annotation_text="Moderate threshold")
+        fig.add_hline(y=-0.5, line_dash="dot", line_color="green")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.markdown("### Tabel Skewness")
+        st.dataframe(skewness_df, use_container_width=True)
+
+    # Visualize most skewed
+    most_skewed = skewness_df.iloc[0]['Coloană']
+
+    with st.expander(f"      Vizualizare: {most_skewed} (Cea Mai Înclinată)"):
+        fig = go.Figure()
+
+        fig.add_trace(go.Histogram(
+            x=df[most_skewed].dropna(),
+            nbinsx=50,
+            name='Histogramă'
+        ))
+
+        # Add mean and median lines
+        mean_val = df[most_skewed].mean()
+        median_val = df[most_skewed].median()
+
+        fig.add_vline(x=mean_val, line_dash="dash", line_color="red", annotation_text=f"Medie: {mean_val:.2f}")
+        fig.add_vline(x=median_val, line_dash="dash", line_color="blue",
+                      annotation_text=f"Mediană: {median_val:.2f}")
+
+        fig.update_layout(title=f'Distribuție {most_skewed} (Skewness: {skewness_df.iloc[0]["Skewness"]:.3f})')
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown('<div class="sub-header">Kurtosis</div>', unsafe_allow_html=True)
+
+    st.markdown("### Calculează Kurtosis")
+
+    # Calculate kurtosis
+    kurt = df[numeric_cols].kurtosis()  # Excess kurtosis (Fisher)
+    kurt_df = pd.DataFrame({
+        'Coloană': kurt.index,
+        'Excess Kurtosis': kurt.values,
+        'Interpretare': kurt.apply(lambda x:
+                                   'Mesokurtic (Normal)' if -0.5 <= x <= 0.5 else
+                                   'Leptokurtic (Cozi grele)' if x > 0.5 else
+                                   'Platykurtic (Cozi ușoare)'
+                                   ).values
+    }).sort_values('Excess Kurtosis', key=abs, ascending=False)
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        fig = px.bar(
+            kurt_df,
+            x='Coloană',
+            y='Excess Kurtosis',
+            color='Interpretare',
+            title='Kurtosis pe Coloane',
+            text='Excess Kurtosis'
+        )
+        fig.update_traces(texttemplate='%{text:.3f}', textposition='outside')
+        fig.add_hline(y=0, line_dash="dash", line_color="black")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.markdown("### Tabel Kurtosis")
+        st.dataframe(kurt_df, use_container_width=True)
+
+    st.markdown('<div class="sub-header">Matricea de corelație</div>', unsafe_allow_html=True)
+
+    st.markdown("### Matrice de Corelație")
+
+    # Select correlation method
+    corr_method = st.radio(
+        "Metoda de corelație:",
+        ['pearson', 'spearman', 'kendall'],
+        format_func=lambda x: {
+            'pearson': 'Pearson (Linear)',
+            'spearman': 'Spearman (Rank)',
+            'kendall': 'Kendall (Rank)'
+        }[x],
+        horizontal=True
+    )
+
+    # Calculate correlation
+    corr_matrix = df[numeric_cols].corr(method=corr_method)
+
+    # Heatmap
+    fig = px.imshow(
+        corr_matrix,
+        text_auto='.2f',
+        aspect='auto',
+        color_continuous_scale='RdBu_r',
+        color_continuous_midpoint=0,
+        title=f'Heatmap Corelație ({corr_method.capitalize()})'
+    )
+    fig.update_xaxes(tickangle=45)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Strong correlations
+    st.markdown("### Corelații Puternice (|r| > 0.7)")
+
+    # Get upper triangle
+    mask = np.triu(np.ones_like(corr_matrix, dtype=bool), k=1)
+    corr_upper = corr_matrix.where(mask)
+
+    # Flatten and filter
+    strong_corr = []
+    for col in corr_upper.columns:
+        for idx in corr_upper.index:
+            val = corr_upper.loc[idx, col]
+            if not pd.isna(val) and abs(val) > 0.7:
+                strong_corr.append({
+                    'Variabila 1': idx,
+                    'Variabila 2': col,
+                    'Corelație': val,
+                    'Forță': 'Foarte Puternică' if abs(val) > 0.9 else 'Puternică'
+                })
+
+    if strong_corr:
+        strong_corr_df = pd.DataFrame(strong_corr).sort_values('Corelație', key=abs, ascending=False)
+        st.dataframe(strong_corr_df, use_container_width=True)
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
@@ -892,3 +1076,5 @@ if __name__ == "__main__":
         show_string_processing()
     elif selected_module == " Standardizare și Normalizare":
         show_standardization()
+    elif selected_module == " Statistici Descriptive":
+        show_descriptive_statistics()
