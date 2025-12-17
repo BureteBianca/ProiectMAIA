@@ -85,7 +85,8 @@ def sidebar_navigation():
     st.sidebar.markdown("### Navighează:")
 
     sections = [
-        " Încărcare Date"
+        " Încărcare Date",
+        " Curățarea Datelor"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -249,9 +250,150 @@ def show_data_connection():
     else:
         st.info(" Configurează conexiunea și apasă butonul 'Încarcă Date' pentru a începe!")
 
+# Curățarea Datelor
+def show_data_cleaning():
+    st.markdown('<h1 class="main-header"> Curățarea Datelor</h1>', unsafe_allow_html=True)
+
+    df = st.session_state['df'].copy()
+
+    # Eliminarea duplicatelor
+    st.markdown('<div class="sub-header">Metoda 1: Eliminarea Duplicatelor</div>', unsafe_allow_html=True)
+    st.markdown("### Găsește și Elimină Duplicate")
+
+    # Select columns for duplicate check
+    all_cols = df.columns.tolist()
+    default_cols = ['ID_CLIENT'] if 'ID_CLIENT' in all_cols else [all_cols[0]]
+
+    duplicate_cols = st.multiselect(
+        "Selectează coloanele pentru verificarea duplicatelor:",
+        all_cols,
+        default=default_cols
+    )
+
+    if duplicate_cols:
+        # Find duplicates
+        duplicates = df[df.duplicated(subset=duplicate_cols, keep=False)]
+        n_duplicates = len(df[df.duplicated(subset=duplicate_cols)])
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(" Total Rânduri", len(df))
+
+        with col2:
+            st.metric(" Duplicate Găsite", n_duplicates)
+
+        with col3:
+            pct_dup = (n_duplicates / len(df) * 100) if len(df) > 0 else 0
+            st.metric(" Procent Duplicate", f"{pct_dup:.2f}%")
+
+        if n_duplicates > 0:
+            st.warning(f"⚠ Găsite {n_duplicates} rânduri duplicate!")
+
+            with st.expander(" Vezi Duplicate"):
+                st.dataframe(duplicates.sort_values(by=duplicate_cols).head(20), use_container_width=True)
+
+            # Options for handling duplicates
+            keep_option = st.radio(
+                "Ce apariție vrei să păstrezi?",
+                ['first', 'last', False],
+                format_func=lambda x: {
+                    'first': 'Prima apariție',
+                    'last': 'Ultima apariție',
+                    False: 'Elimină toate (nu păstra nimic)'
+                }[x],
+                horizontal=True
+            )
+
+            if st.button(" Elimină Duplicate", type="primary"):
+                df_clean = df.drop_duplicates(subset=duplicate_cols, keep=keep_option)
+                n_removed = len(df) - len(df_clean)
+
+                st.success(f" Eliminate {n_removed} rânduri duplicate!")
+                st.metric(" Rânduri Rămase", len(df_clean))
+
+                # Store cleaned data
+                st.session_state['df_clean'] = df_clean
+
+                # Show before/after
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("**Înainte:**")
+                    st.dataframe(df.head(10), use_container_width=True)
+
+                with col2:
+                    st.markdown("**După:**")
+                    st.dataframe(df_clean.head(10), use_container_width=True)
+
+# Tratare completă (toate coloanele)
+    st.markdown("### Tratare Automată pentru Toate Coloanele")
+
+    with st.expander("Aplică Strategie Globală"):
+        st.markdown("""
+        Aplică o strategie de tratare pentru toate coloanele cu valori lipsă simultan.
+        """)
+
+        global_strategy = st.radio(
+            "Strategie globală:",
+            ['smart', 'drop_rows', 'drop_cols'],
+            format_func=lambda x: {
+                'smart': ' Smart (Medie pt numeric, Mod pt categoric)',
+                'drop_rows': ' Elimină Rânduri cu NaN',
+                'drop_cols': 'Elimină Coloane cu > 30% NaN'
+            }[x]
+        )
+
+        if st.button(" Aplică Tratare Globală", type="primary"):
+            df_global = df.copy()
+
+            if global_strategy == 'smart':
+                # Numeric columns - mean
+                numeric_cols = df_global.select_dtypes(include=[np.number]).columns
+                for col in numeric_cols:
+                    if df_global[col].isnull().sum() > 0:
+                        df_global[col].fillna(df_global[col].mean(), inplace=True)
+
+                # Categorical columns - mode
+                cat_cols = df_global.select_dtypes(include=['object']).columns
+                for col in cat_cols:
+                    if df_global[col].isnull().sum() > 0:
+                        mode_val = df_global[col].mode()[0] if len(df_global[col].mode()) > 0 else 'MISSING'
+                        df_global[col].fillna(mode_val, inplace=True)
+
+                st.success("Aplicată")
+
+            elif global_strategy == 'drop_rows':
+                df_global.dropna(inplace=True)
+                n_dropped = len(df) - len(df_global)
+                st.success(f" Eliminate {n_dropped} rânduri!")
+
+            else:  # drop_cols
+                threshold = 0.3
+                for col in df_global.columns:
+                    if (df_global[col].isnull().sum() / len(df_global)) > threshold:
+                        df_global.drop(columns=[col], inplace=True)
+                n_dropped_cols = len(df.columns) - len(df_global.columns)
+                st.success(f" Eliminate {n_dropped_cols} coloane!")
+
+            # Store and show results
+            st.session_state['df_global_clean'] = df_global
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.metric("Înainte - Total NaN", df.isnull().sum().sum())
+                st.metric("Înainte - Dimensiune", f"{df.shape[0]} × {df.shape[1]}")
+
+            with col2:
+                st.metric("După - Total NaN", df_global.isnull().sum().sum())
+                st.metric("După - Dimensiune", f"{df_global.shape[0]} × {df_global.shape[1]}")
+
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
 
     if selected_module == " Încărcare Date":
         show_data_connection()
+    elif selected_module == " Curățarea Datelor":
+        show_data_cleaning()
