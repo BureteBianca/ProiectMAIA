@@ -92,14 +92,6 @@ def sidebar_navigation():
 
     st.sidebar.markdown("---")
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("###   Etapele Analizei")
-    st.sidebar.markdown("""
-    1. **Organizare date** - MongoDB, SQL
-    2. **Prelucrare date** - Curățare, standardizare
-    3. **Analiză date** - Descriptivă, diagnostic, predictivă
-    """)
-
     return selected
 
 # Date
