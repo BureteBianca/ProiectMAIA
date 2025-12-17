@@ -583,7 +583,7 @@ def show_string_processing():
             )
 
         with col2:
-            n_bins = st.slider("Număr bins:", 2, 20, 5)
+            n_bins = st.slider("Număr bins:", 2, 100, 5)
 
         use_labels = st.checkbox("Folosește labels custom", value=False)
 
@@ -650,7 +650,7 @@ def show_string_processing():
                 with st.expander("      Mapping Bins"):
                     mapping_df = df_binned[[col_to_bin, f'{col_to_bin}_BINNED']].drop_duplicates().sort_values(
                         col_to_bin)
-                    st.dataframe(mapping_df.head(100), use_container_width=True)
+                    st.dataframe(mapping_df.head(20), use_container_width=True)
 
 
             except Exception as e:
