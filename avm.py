@@ -657,6 +657,223 @@ def show_string_processing():
                 st.error(f" Eroare: {str(e)}")
                 st.info(" Încearcă să reduci numărul de bins sau folosește qcut cu duplicates='drop'")
 
+def show_standardization():
+    st.markdown('<h1 class="main-header"> Standardizare și Normalizare</h1>', unsafe_allow_html=True)
+
+    df = st.session_state['df'].copy()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+    if not numeric_cols:
+        st.error("Nu există coloane numerice în dataset!")
+        return
+
+    st.markdown('<div class="sub-header">Metode Disponibile</div>', unsafe_allow_html=True)
+
+    st.markdown("### Selectează Date și Metodă")
+
+    # Select columns
+    cols_to_scale = st.multiselect(
+        "Selectează coloanele numerice de scalat:",
+        numeric_cols,
+        default=numeric_cols[:3] if len(numeric_cols) >= 3 else numeric_cols
+    )
+
+    if not cols_to_scale:
+        st.warning("Selectează cel puțin o coloană!")
+        return
+
+    # Select method
+    scaling_method = st.selectbox(
+        "Selectează metoda de scalare:",
+        ['StandardScaler', 'MinMaxScaler', 'RobustScaler', 'Normalizer', 'QuantileTransformer'],
+        help="Vezi teoria pentru detalii despre fiecare metodă"
+    )
+
+    # Method-specific options
+    if scaling_method == 'Normalizer':
+        norm_type = st.radio(
+            "Tip normă:",
+            ['l1', 'l2', 'max'],
+            format_func=lambda x: {
+                'l1': 'L1 (Manhattan)',
+                'l2': 'L2 (Euclidean)',
+                'max': 'Max'
+            }[x],
+            horizontal=True
+        )
+    elif scaling_method == 'QuantileTransformer':
+        n_quantiles = st.slider("Număr quantile:", 10, 1000, 100, 10)
+        output_dist = st.radio(
+            "Distribuție output:",
+            ['uniform', 'normal'],
+            horizontal=True
+        )
+    elif scaling_method == 'RobustScaler':
+        quantile_range = st.slider(
+            "Quantile range (Q1, Q3):",
+            (0, 100),
+            (25, 75),
+            1
+        )
+
+    if st.button(" Aplică Scalarea", type="primary"):
+        # Prepare data
+        X = df[cols_to_scale].copy()
+        X_clean = X.fillna(X.mean())  # Fill NaN pentru scalare
+
+        # Apply scaling
+        try:
+            if scaling_method == 'StandardScaler':
+                scaler = StandardScaler()
+            elif scaling_method == 'MinMaxScaler':
+                scaler = MinMaxScaler()
+            elif scaling_method == 'RobustScaler':
+                scaler = RobustScaler(quantile_range=quantile_range)
+            elif scaling_method == 'Normalizer':
+                scaler = Normalizer(norm=norm_type)
+            else:  # QuantileTransformer
+                scaler = QuantileTransformer(
+                    n_quantiles=n_quantiles,
+                    output_distribution=output_dist
+                )
+
+            X_scaled = scaler.fit_transform(X_clean)
+
+            # Create scaled DataFrame
+            df_scaled = pd.DataFrame(
+                X_scaled,
+                columns=[f'{col}_SCALED' for col in cols_to_scale],
+                index=X.index
+            )
+
+            # Combine with original
+            df_result = pd.concat([X, df_scaled], axis=1)
+
+            st.session_state['df_scaled'] = df_result
+            st.success(f"   Scalare aplicată cu {scaling_method}!")
+
+            # Show statistics comparison
+            st.markdown("### Comparație Statistici: Înainte vs După")
+
+            stats_before = X_clean.describe()
+            stats_after = df_scaled.describe()
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**Înainte Scalare:**")
+                st.dataframe(stats_before, use_container_width=True)
+
+            with col2:
+                st.markdown("**După Scalare:**")
+                st.dataframe(stats_after, use_container_width=True)
+
+            # Visualize distributions
+            st.markdown("### Comparație Distribuții")
+
+            for col in cols_to_scale:
+                with st.expander(f"      {col}"):
+                    fig = go.Figure()
+
+                    # Original
+                    fig.add_trace(go.Histogram(
+                        x=X_clean[col],
+                        name='Original',
+                        opacity=0.7,
+                        nbinsx=30
+                    ))
+
+                    # Scaled
+                    fig.add_trace(go.Histogram(
+                        x=df_scaled[f'{col}_SCALED'],
+                        name='Scaled',
+                        opacity=0.7,
+                        nbinsx=30
+                    ))
+
+                    fig.update_layout(
+                        title=f'Distribuție: {col}',
+                        barmode='overlay',
+                        xaxis_title='Valoare',
+                        yaxis_title='Frecvență'
+                    )
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # Box plots
+                    fig_box = go.Figure()
+
+                    fig_box.add_trace(go.Box(
+                        y=X_clean[col],
+                        name='Original',
+                        boxmean=True
+                    ))
+
+                    fig_box.add_trace(go.Box(
+                        y=df_scaled[f'{col}_SCALED'],
+                        name='Scaled',
+                        boxmean=True
+                    ))
+
+                    fig_box.update_layout(title=f'Box Plot: {col}')
+                    st.plotly_chart(fig_box, use_container_width=True)
+
+        except Exception as e:
+            st.error(f" Eroare la scalare: {str(e)}")
+            st.info(" Verifică dacă există valori NaN sau infinite în date")
+
+    # Comparison tool
+    st.markdown('<div class="sub-header">Comparație între Metode</div>', unsafe_allow_html=True)
+
+    with st.expander(" Compară Toate Metodele"):
+        if st.button("      Generează Comparație", key="compare_methods"):
+            if len(cols_to_scale) > 0:
+                # Select one column for comparison
+                comp_col = cols_to_scale[0]
+                X_comp = df[[comp_col]].fillna(df[[comp_col]].mean())
+
+                # Apply all methods
+                methods = {
+                    'Original': X_comp.values,
+                    'StandardScaler': StandardScaler().fit_transform(X_comp),
+                    'MinMaxScaler': MinMaxScaler().fit_transform(X_comp),
+                    'RobustScaler': RobustScaler().fit_transform(X_comp),
+                }
+
+                # Create comparison plot
+                fig = go.Figure()
+
+                for method_name, data in methods.items():
+                    fig.add_trace(go.Box(
+                        y=data.flatten(),
+                        name=method_name,
+                        boxmean=True
+                    ))
+
+                fig.update_layout(
+                    title=f'Comparație Metode Scalare: {comp_col}',
+                    yaxis_title='Valoare',
+                    showlegend=True
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Statistics table
+                stats_comparison = pd.DataFrame({
+                    method: [
+                        data.min(),
+                        np.percentile(data, 25),
+                        np.median(data),
+                        np.percentile(data, 75),
+                        data.max(),
+                        data.mean(),
+                        data.std()
+                    ]
+                    for method, data in methods.items()
+                }, index=['Min', 'Q1', 'Median', 'Q3', 'Max', 'Mean', 'Std'])
+
+                st.markdown("### Statistici Comparative")
+                st.dataframe(stats_comparison, use_container_width=True)
 
 
 
@@ -672,3 +889,5 @@ if __name__ == "__main__":
         show_outlier_detection()
     elif selected_module == " Prelucrarea Șirurilor de Caractere":
         show_string_processing()
+    elif selected_module == " Standardizare și Normalizare":
+        show_standardization()
