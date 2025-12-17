@@ -34,7 +34,8 @@ def sidebar_navigation():
     sections = [
         " Încărcare Date",
         " Curățarea Datelor",
-        " Detectarea Valorilor Anormale"
+        " Detectarea Valorilor Anormale",
+        " Prelucrarea Șirurilor de Caractere"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -497,6 +498,168 @@ def show_outlier_detection():
                 'Frecvență': rare_cats.values
             }), use_container_width=True)
 
+def show_string_processing():
+    st.markdown('<h1 class="main-header">Prelucrarea Șirurilor de Caractere</h1>', unsafe_allow_html=True)
+
+    df = st.session_state['df'].copy()
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    if not cat_cols:
+        st.error("Nu există coloane text în dataset!")
+        return
+    st.markdown('<div class="sub-header"> Label Encoding</div>', unsafe_allow_html=True)
+
+    st.markdown("### Transformă Categorii în Numere")
+
+    cols_to_encode = st.multiselect(
+        "Selectează coloanele de transformat:",
+        cat_cols,
+        default=cat_cols[:2] if len(cat_cols) >= 2 else cat_cols
+    )
+
+    if cols_to_encode and st.button(" Aplică Label Encoding", type="primary"):
+        df_encoded = df.copy()
+
+        mappings = {}
+
+        for col in cols_to_encode:
+            le = LabelEncoder()
+            df_encoded[f'{col}_ENCODED'] = le.fit_transform(df_encoded[col].astype(str))
+
+            # Store mapping
+            mappings[col] = dict(zip(le.classes_, le.transform(le.classes_)))
+
+        st.session_state['df_encoded'] = df_encoded
+        st.success(f"   Transformate {len(cols_to_encode)} coloane!")
+
+        # Show results
+        for col in cols_to_encode:
+            with st.expander(f"      Mapare: {col}"):
+                st.markdown(f"### {col} → {col}_ENCODED")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("**Original:**")
+                    st.dataframe(df[col].value_counts(), use_container_width=True)
+
+                with col2:
+                    st.markdown("**Encoded:**")
+                    mapping_df = pd.DataFrame({
+                        'Categorie': list(mappings[col].keys()),
+                        'Cod': list(mappings[col].values())
+                    }).sort_values('Cod')
+                    st.dataframe(mapping_df, use_container_width=True)
+
+                # Sample comparison
+                st.markdown("**Exemplu Transformare:**")
+                sample_df = pd.DataFrame({
+                    'Original': df[col].head(10),
+                    'Encoded': df_encoded[f'{col}_ENCODED'].head(10)
+                })
+                st.dataframe(sample_df, use_container_width=True)
+
+
+    st.markdown('<div class="sub-header"> Discretizare (Binning)</div>', unsafe_allow_html=True)
+
+
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+    if numeric_cols:
+        st.markdown("### Discretizează Variabilă Continuă")
+
+        col_to_bin = st.selectbox("Selectează coloana numerică:", numeric_cols, key="bin_col")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            bin_method = st.radio(
+                "Metodă:",
+                ['cut', 'qcut'],
+                format_func=lambda x: {
+                    'cut': ' cut() - Lățime Egală',
+                    'qcut': ' qcut() - Frecvență Egală'
+                }[x]
+            )
+
+        with col2:
+            n_bins = st.slider("Număr bins:", 2, 20, 5)
+
+        use_labels = st.checkbox("Folosește labels custom", value=False)
+
+        if use_labels:
+            labels_input = st.text_input(
+                "Labels (separate prin virgulă):",
+                value=f"{','.join([f'Bin_{i + 1}' for i in range(n_bins)])}"
+            )
+            labels = [l.strip() for l in labels_input.split(',')]
+
+            if len(labels) != n_bins:
+                st.error(f" Trebuie {n_bins} labels, ai furnizat {len(labels)}")
+                labels = False
+        else:
+            labels = False
+
+        if st.button(" Aplică Discretizarea", type="primary"):
+            df_binned = df.copy()
+
+            try:
+                if bin_method == 'cut':
+                    df_binned[f'{col_to_bin}_BINNED'] = pd.cut(
+                        df_binned[col_to_bin],
+                        bins=n_bins,
+                        labels=labels
+                    )
+                else:
+                    df_binned[f'{col_to_bin}_BINNED'] = pd.qcut(
+                        df_binned[col_to_bin],
+                        q=n_bins,
+                        labels=labels,
+                        duplicates='drop'
+                    )
+
+                st.session_state['df_binned'] = df_binned
+                st.success("   Discretizare aplicată!")
+
+                # Show results
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### Histogramă Originală")
+                    fig1 = px.histogram(df, x=col_to_bin, nbins=50)
+                    st.plotly_chart(fig1, use_container_width=True)
+
+                    st.metric("Valori Unice", df[col_to_bin].nunique())
+
+                with col2:
+                    st.markdown("### Distribuție Bins")
+                    bin_counts = df_binned[f'{col_to_bin}_BINNED'].value_counts().sort_index()
+
+                    fig2 = px.bar(
+                        x=bin_counts.index.astype(str),
+                        y=bin_counts.values,
+                        labels={'x': 'Bin', 'y': 'Frecvență'},
+                        text=bin_counts.values
+                    )
+                    fig2.update_traces(textposition='outside')
+                    st.plotly_chart(fig2, use_container_width=True)
+
+                    st.metric("Bins Create", df_binned[f'{col_to_bin}_BINNED'].nunique())
+
+                # Show mapping
+                with st.expander("      Mapping Bins"):
+                    mapping_df = df_binned[[col_to_bin, f'{col_to_bin}_BINNED']].drop_duplicates().sort_values(
+                        col_to_bin)
+                    st.dataframe(mapping_df.head(100), use_container_width=True)
+
+
+            except Exception as e:
+                st.error(f" Eroare: {str(e)}")
+                st.info(" Încearcă să reduci numărul de bins sau folosește qcut cu duplicates='drop'")
+
+
+
+
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
@@ -507,3 +670,5 @@ if __name__ == "__main__":
         show_data_cleaning()
     elif selected_module == " Detectarea Valorilor Anormale":
         show_outlier_detection()
+    elif selected_module == " Prelucrarea Șirurilor de Caractere":
+        show_string_processing()
