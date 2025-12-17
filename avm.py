@@ -35,7 +35,8 @@ def sidebar_navigation():
         " Încărcare Date",
         " Curățarea Datelor",
         " Detectarea Valorilor Anormale",
-        " Prelucrarea Șirurilor de Caractere"
+        " Prelucrarea Șirurilor de Caractere",
+        " Standardizare și Normalizare"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
