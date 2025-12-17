@@ -22,6 +22,23 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown("""
+<style>
+    /* Fundal pagina și container principal */
+    body, .stApp {
+        background-color: #1E90FF;  /* albastru */
+    }
+
+    /* Header-uri și text general */
+    .main-header, .sub-header, .method-box, .why-box, .theory-box, .code-explanation, .success-box, 
+    .stMarkdown, .stText {
+        color: #4B0082;  /* mov închis */
+    }
+
+    /* Poți ajusta și alte elemente dacă vrei */
+</style>
+""", unsafe_allow_html=True)
+
 @st.cache_data(ttl=3600)
 def load_data_from_csv(uploaded_file):
     """Încarcă datele dintr-un fișier CSV încărcat în Streamlit."""
