@@ -22,59 +22,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizat
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .sub-header {
-        font-size: 1.8rem;
-        color: #2c3e50;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 0.5rem;
-    }
-    .method-box {
-        background-color: #f0f8ff;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 5px solid #3498db;
-        margin: 1rem 0;
-    }
-    .why-box {
-        background-color: #fff9e6;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 5px solid #f39c12;
-        margin: 1rem 0;
-    }
-    .theory-box {
-        background-color: #f0f0f0;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-    .code-explanation {
-        background-color: #e8f5e9;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-    .success-box {
-        background-color: #d4edda;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 5px solid #28a745;
-        margin: 1rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 @st.cache_data(ttl=3600)
 def load_data_from_csv(uploaded_file):
     """Încarcă datele dintr-un fișier CSV încărcat în Streamlit."""
