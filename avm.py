@@ -86,7 +86,8 @@ def sidebar_navigation():
 
     sections = [
         " Încărcare Date",
-        " Curățarea Datelor"
+        " Curățarea Datelor",
+        " Detectarea Valorilor Anormale"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -389,6 +390,166 @@ def show_data_cleaning():
                 st.metric("După - Total NaN", df_global.isnull().sum().sum())
                 st.metric("După - Dimensiune", f"{df_global.shape[0]} × {df_global.shape[1]}")
 
+def show_outlier_detection():
+    st.markdown('<h1 class="main-header"> Detectarea Valorilor Anormale (Outlieri)</h1>', unsafe_allow_html=True)
+
+    df = st.session_state['df'].copy()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+
+    if not numeric_cols:
+        st.error("Nu există coloane numerice în dataset!")
+        return
+
+    st.markdown('<div class="sub-header">Metoda 1: Analiză cu Histogramă</div>', unsafe_allow_html=True)
+
+    col_for_hist = st.selectbox("Selectează coloana pentru histogramă:", numeric_cols, key="hist_col")
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        fig = px.histogram(
+            df,
+            x=col_for_hist,
+            nbins=50,
+            title=f'Histogramă: {col_for_hist}',
+            marginal='box'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.markdown("### Statistici")
+        stats_df = pd.DataFrame({
+            'Metrică': ['Minim', 'Q1 (25%)', 'Mediană', 'Q3 (75%)', 'Maxim', 'Media', 'Std Dev'],
+            'Valoare': [
+                df[col_for_hist].min(),
+                df[col_for_hist].quantile(0.25),
+                df[col_for_hist].median(),
+                df[col_for_hist].quantile(0.75),
+                df[col_for_hist].max(),
+                df[col_for_hist].mean(),
+                df[col_for_hist].std()
+            ]
+        })
+        st.dataframe(stats_df, use_container_width=True)
+
+    st.markdown('<div class="sub-header">Metoda 2: Box Plot</div>', unsafe_allow_html=True)
+
+    col_for_box = st.selectbox("Selectează coloana pentru box plot:", numeric_cols, key="box_col")
+
+    # Calculate IQR and outliers
+    Q1 = df[col_for_box].quantile(0.25)
+    Q3 = df[col_for_box].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_fence = Q1 - 1.5 * IQR
+    upper_fence = Q3 + 1.5 * IQR
+
+    outliers = df[(df[col_for_box] < lower_fence) | (df[col_for_box] > upper_fence)]
+    n_outliers = len(outliers)
+    pct_outliers = (n_outliers / len(df) * 100) if len(df) > 0 else 0
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(" Total Valori", len(df))
+
+    with col2:
+        st.metric("Outlieri Găsiți", n_outliers)
+
+    with col3:
+        st.metric(" Procent Outlieri", f"{pct_outliers:.2f}%")
+
+    # Box plot
+    fig = px.box(
+        df,
+        y=col_for_box,
+        points='outliers',
+        title=f'Box Plot: {col_for_box}'
+    )
+    fig.add_hline(y=lower_fence, line_dash="dash", line_color="red", annotation_text="Lower Fence")
+    fig.add_hline(y=upper_fence, line_dash="dash", line_color="red", annotation_text="Upper Fence")
+    st.plotly_chart(fig, use_container_width=True)
+
+    if n_outliers > 0:
+        with st.expander(" Vezi Outlierii"):
+            st.dataframe(outliers[[col_for_box]].describe(), use_container_width=True)
+            st.dataframe(outliers.head(20), use_container_width=True)
+
+    st.markdown('<div class="sub-header">Metoda 3: Detectare cu Quantile</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        q_low_pct = st.slider("Quantila inferioară (%):", 0.0, 10.0, 1.0, 0.5)
+
+    with col2:
+        q_high_pct = st.slider("Quantila superioară (%):", 90.0, 100.0, 99.0, 0.5)
+
+    col_for_quantile = st.selectbox("Selectează coloana:", numeric_cols, key="quantile_col")
+
+    q_low = df[col_for_quantile].quantile(q_low_pct / 100)
+    q_high = df[col_for_quantile].quantile(q_high_pct / 100)
+
+    df_filtered = df[(df[col_for_quantile] >= q_low) & (df[col_for_quantile] <= q_high)]
+    n_removed = len(df) - len(df_filtered)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### Înainte Filtrare")
+        fig1 = px.box(df, y=col_for_quantile, title="Original")
+        st.plotly_chart(fig1, use_container_width=True)
+
+    with col2:
+        st.markdown("### După Filtrare")
+        fig2 = px.box(df_filtered, y=col_for_quantile, title="Filtrat")
+        st.plotly_chart(fig2, use_container_width=True)
+
+    if st.button(" Aplică Filtrare Quantile", type="primary"):
+        st.session_state['df_filtered'] = df_filtered
+        st.success(f" Eliminate {n_removed} valori outlier!")
+
+    st.markdown('<div class="sub-header">Metoda 4: Variabile Categorice</div>', unsafe_allow_html=True)
+
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    if cat_cols:
+
+        cat_col = st.selectbox("Selectează coloana categorică:", cat_cols, key="cat_col")
+
+        value_counts = df[cat_col].value_counts()
+        value_counts_pct = (value_counts / len(df) * 100).round(2)
+
+        fig = px.bar(
+            x=value_counts.index,
+            y=value_counts.values,
+            labels={'x': cat_col, 'y': 'Frecvență'},
+            title=f'Distribuția Categoriilor: {cat_col}',
+            text=value_counts.values
+        )
+        fig.update_traces(textposition='outside')
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Show frequency table
+        freq_df = pd.DataFrame({
+            'Categorie': value_counts.index,
+            'Frecvență': value_counts.values,
+            'Procent': value_counts_pct.values
+        })
+        st.dataframe(freq_df, use_container_width=True)
+
+        # Identify rare categories
+        threshold_pct = st.slider("Prag pentru categorii rare (%):", 0.1, 10.0, 1.0, 0.1)
+        threshold_count = len(df) * (threshold_pct / 100)
+
+        rare_cats = value_counts[value_counts < threshold_count]
+
+        if len(rare_cats) > 0:
+            st.warning(f" Găsite {len(rare_cats)} categorii rare (< {threshold_pct}%)")
+            st.dataframe(pd.DataFrame({
+                'Categorie Rară': rare_cats.index,
+                'Frecvență': rare_cats.values
+            }), use_container_width=True)
+
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
@@ -397,3 +558,5 @@ if __name__ == "__main__":
         show_data_connection()
     elif selected_module == " Curățarea Datelor":
         show_data_cleaning()
+    elif selected_module == " Detectarea Valorilor Anormale":
+        show_outlier_detection()
