@@ -25,7 +25,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     body, .stApp {
-        background-color: #87CEFA;  
+        background-color: #4179AF;  
     }
     .main-header, .sub-header, .method-box, .why-box, .theory-box, .code-explanation, .success-box, 
     .stMarkdown, .stText {
