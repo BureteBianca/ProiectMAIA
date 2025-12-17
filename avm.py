@@ -258,3 +258,8 @@ def show_data_connection():
         st.info(" Configurează conexiunea și apasă butonul 'Încarcă Date' pentru a începe!")
 
 
+if __name__ == "__main__":
+    selected_module = sidebar_navigation()
+
+    if selected_module == " Încărcare Date":
+        show_data_connection()
