@@ -56,6 +56,7 @@ def sidebar_navigation():
     sections = [
         " Incarcare date",
         " Filtrare date",
+        " Analiza valori lipsa",
         " Curatarea datelor",
         " Detectarea valorilor anormale",
         " Prelucrarea sirurilor de caractere",
@@ -317,144 +318,64 @@ def show_data_filtering():
     st.session_state['df_filtered_final'] = filtered_df
 
 
-# Curățarea Datelor
-def show_data_cleaning():
-    st.markdown('<h1 class="main-header"> Curățarea Datelor</h1>', unsafe_allow_html=True)
+# Valori lipsa
+def show_missing_values_analysis():
+    st.markdown('<h1 class="main-header"> Analiza Valorilor Lipsă</h1>', unsafe_allow_html=True)
 
     df = st.session_state['df'].copy()
 
-    # Eliminarea duplicatelor
-    st.markdown('<div class="sub-header">Eliminarea Duplicatelor</div>', unsafe_allow_html=True)
-    st.markdown("### Găsește și Elimină Duplicate")
+    # -------------------- IDENTIFICARE VALORI LIPSĂ --------------------
+    missing_count = df.isnull().sum()
+    missing_percent = (missing_count / len(df)) * 100
 
-    # Select columns for duplicate check
-    all_cols = df.columns.tolist()
-    default_cols = ['ID_CLIENT'] if 'ID_CLIENT' in all_cols else [all_cols[0]]
+    missing_df = pd.DataFrame({
+        'Coloană': missing_count.index,
+        'Valori Lipsă': missing_count.values,
+        'Procent (%)': missing_percent.values
+    }).sort_values('Valori Lipsă', ascending=False)
 
-    duplicate_cols = st.multiselect(
-        "Selectează coloanele pentru verificarea duplicatelor:",
-        all_cols,
-        default=default_cols
+    # Coloane cu valori lipsă
+    cols_with_missing = missing_df[missing_df['Valori Lipsă'] > 0]
+
+    st.markdown("### Coloane cu valori lipsă")
+
+    if cols_with_missing.empty:
+        st.success("✅ Nu există valori lipsă în dataset!")
+        return
+
+    st.dataframe(cols_with_missing, use_container_width=True)
+
+    # -------------------- GRAFIC BAR --------------------
+    st.markdown("### Vizualizare – Procent valori lipsă")
+
+    fig = px.bar(
+        cols_with_missing,
+        x='Coloană',
+        y='Procent (%)',
+        text='Valori Lipsă',
+        title='Procentul valorilor lipsă pe coloană'
     )
 
-    if duplicate_cols:
-        # Find duplicates
-        duplicates = df[df.duplicated(subset=duplicate_cols, keep=False)]
-        n_duplicates = len(df[df.duplicated(subset=duplicate_cols)])
+    fig.update_traces(textposition='outside')
+    fig.update_layout(
+        xaxis_title="Coloană",
+        yaxis_title="Procent valori lipsă (%)"
+    )
 
-        col1, col2, col3 = st.columns(3)
+    st.plotly_chart(fig, use_container_width=True)
 
-        with col1:
-            st.metric(" Total Rânduri", len(df))
+    # -------------------- HEATMAP (OPȚIONAL, BONUS) --------------------
+    st.markdown("### Heatmap valori lipsă (primele 50 rânduri)")
 
-        with col2:
-            st.metric(" Duplicate Găsite", n_duplicates)
-
-        with col3:
-            pct_dup = (n_duplicates / len(df) * 100) if len(df) > 0 else 0
-            st.metric(" Procent Duplicate", f"{pct_dup:.2f}%")
-
-        if n_duplicates > 0:
-            st.warning(f"⚠ Găsite {n_duplicates} rânduri duplicate!")
-
-            with st.expander(" Vezi Duplicate"):
-                st.dataframe(duplicates.sort_values(by=duplicate_cols).head(20), use_container_width=True)
-
-            # Options for handling duplicates
-            keep_option = st.radio(
-                "Ce apariție vrei să păstrezi?",
-                ['first', 'last', False],
-                format_func=lambda x: {
-                    'first': 'Prima apariție',
-                    'last': 'Ultima apariție',
-                    False: 'Elimină toate (nu păstra nimic)'
-                }[x],
-                horizontal=True
-            )
-
-            if st.button(" Elimină Duplicate", type="primary"):
-                df_clean = df.drop_duplicates(subset=duplicate_cols, keep=keep_option)
-                n_removed = len(df) - len(df_clean)
-
-                st.success(f" Eliminate {n_removed} rânduri duplicate!")
-                st.metric(" Rânduri Rămase", len(df_clean))
-
-                # Store cleaned data
-                st.session_state['df_clean'] = df_clean
-
-                # Show before/after
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.markdown("**Înainte:**")
-                    st.dataframe(df.head(10), use_container_width=True)
-
-                with col2:
-                    st.markdown("**După:**")
-                    st.dataframe(df_clean.head(10), use_container_width=True)
-
-# Tratare completă (toate coloanele)
-    st.markdown("### Tratare Automată pentru Toate Coloanele")
-
-    with st.expander("Aplică Strategie Globală"):
-        st.markdown("""
-        Aplică o strategie de tratare pentru toate coloanele cu valori lipsă simultan.
-        """)
-
-        global_strategy = st.radio(
-            "Strategie globală:",
-            ['smart', 'drop_rows', 'drop_cols'],
-            format_func=lambda x: {
-                'smart': ' Smart (Medie pt numeric, Mod pt categoric)',
-                'drop_rows': ' Elimină Rânduri cu NaN',
-                'drop_cols': 'Elimină Coloane cu > 30% NaN'
-            }[x]
-        )
-
-        if st.button(" Aplică Tratare Globală", type="primary"):
-            df_global = df.copy()
-
-            if global_strategy == 'smart':
-                # Numeric columns - mean
-                numeric_cols = df_global.select_dtypes(include=[np.number]).columns
-                for col in numeric_cols:
-                    if df_global[col].isnull().sum() > 0:
-                        df_global[col].fillna(df_global[col].mean(), inplace=True)
-
-                # Categorical columns - mode
-                cat_cols = df_global.select_dtypes(include=['object']).columns
-                for col in cat_cols:
-                    if df_global[col].isnull().sum() > 0:
-                        mode_val = df_global[col].mode()[0] if len(df_global[col].mode()) > 0 else 'MISSING'
-                        df_global[col].fillna(mode_val, inplace=True)
-
-                st.success("Aplicată")
-
-            elif global_strategy == 'drop_rows':
-                df_global.dropna(inplace=True)
-                n_dropped = len(df) - len(df_global)
-                st.success(f" Eliminate {n_dropped} rânduri!")
-
-            else:  # drop_cols
-                threshold = 0.3
-                for col in df_global.columns:
-                    if (df_global[col].isnull().sum() / len(df_global)) > threshold:
-                        df_global.drop(columns=[col], inplace=True)
-                n_dropped_cols = len(df.columns) - len(df_global.columns)
-                st.success(f" Eliminate {n_dropped_cols} coloane!")
-
-            # Store and show results
-            st.session_state['df_global_clean'] = df_global
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.metric("Înainte - Total NaN", df.isnull().sum().sum())
-                st.metric("Înainte - Dimensiune", f"{df.shape[0]} × {df.shape[1]}")
-
-            with col2:
-                st.metric("După - Total NaN", df_global.isnull().sum().sum())
-                st.metric("După - Dimensiune", f"{df_global.shape[0]} × {df_global.shape[1]}")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.heatmap(
+        df.head(50).isnull(),
+        cbar=False,
+        yticklabels=False,
+        cmap=['#001F54', '#DA70D6']
+    )
+    ax.set_title("Mov = Lipsă | Albastru = Prezent")
+    st.pyplot(fig)
 
 def show_outlier_detection():
     st.markdown('<h1 class="main-header"> Detectarea Valorilor Anormale (Outlieri)</h1>', unsafe_allow_html=True)
@@ -1187,8 +1108,8 @@ if __name__ == "__main__":
         show_data_connection()
     elif selected_module == " Filtrare date":
         show_data_filtering()
-    elif selected_module == " Curatarea datelor":
-        show_data_cleaning()
+    elif selected_module == " Analiza valori lipsa":
+        show_missing_values_analysis()
     elif selected_module == " Detectarea valorilor anormale":
         show_outlier_detection()
     elif selected_module == " Prelucrarea sirurilor de caractere":
