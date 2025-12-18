@@ -35,9 +35,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 @st.cache_data(ttl=3600)
-def load_data_from_csv(uploaded_file):
-    """Încarcă datele dintr-un fișier CSV încărcat în Streamlit."""
-    df = pd.read_csv(uploaded_file)
+def load_data(uploaded_file):
+    """Încarcă date din CSV sau Excel"""
+    file_name = uploaded_file.name.lower()
+
+    if file_name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+
+    elif file_name.endswith(('.xlsx', '.xls')):
+        df = pd.read_excel(uploaded_file)
+
+    else:
+        raise ValueError("Format fișier neacceptat!")
+
     return df
 def sidebar_navigation():
     st.sidebar.markdown("#  Proiect MAIA")
@@ -63,23 +73,29 @@ def sidebar_navigation():
 # Date
 def show_data_connection():
     st.markdown('<h1 class="main-header"> Încărcare Date</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Încarcă datele dintr-un fișier CSV</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Încarcă datele dintr-un fișier CSV/Excel</div>', unsafe_allow_html=True)
 
-    with st.expander(" Încarcă fișier CSV (fără MongoDB)"):
-        uploaded_csv = st.file_uploader("Alege fișierul CSV:", type=["csv"])
+    with st.expander(" Încarcă fișier CSV sau Excel"):
+        uploaded_file = st.file_uploader(
+            "Alege fișierul (CSV / XLSX / XLS):",
+            type=["csv", "xlsx", "xls"]
+        )
 
-        if uploaded_csv is not None:
+        if uploaded_file is not None:
             try:
-                df_csv = load_data_from_csv(uploaded_csv)
-                st.session_state['df'] = df_csv
-                st.session_state['collection_name'] = "csv_upload"
+                df = load_data(uploaded_file)
+                st.session_state['df'] = df
+                st.session_state['collection_name'] = uploaded_file.name
 
-                st.success(f"Date încărcate cu succes din CSV! ({len(df_csv):,} rânduri, {len(df_csv.columns)} coloane)")
+                st.success(
+                    f"Date încărcate cu succes! "
+                    f"({len(df):,} rânduri, {len(df.columns)} coloane)"
+                )
 
-                st.dataframe(df_csv.head(10), use_container_width=True)
+                st.dataframe(df.head(10), use_container_width=True)
 
             except Exception as e:
-                st.error(f"Eroare la citirea CSV-ului: {e}")
+                st.error(f"Eroare la citirea fișierului: {e}")
 
     # Display data if loaded
     if 'df' in st.session_state:
