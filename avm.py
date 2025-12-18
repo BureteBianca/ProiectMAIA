@@ -57,7 +57,6 @@ def sidebar_navigation():
         " Incarcare date",
         " Filtrare date",
         " Analiza valori lipsa",
-        " Curatarea datelor",
         " Detectarea valorilor anormale",
         " Prelucrarea sirurilor de caractere",
         " Standardizare si normalizare",
