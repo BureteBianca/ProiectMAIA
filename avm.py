@@ -45,6 +45,7 @@ def sidebar_navigation():
 
     sections = [
         " Incarcare date",
+        " Filtrare date",
         " Curatarea datelor",
         " Detectarea valorilor anormale",
         " Prelucrarea sirurilor de caractere",
@@ -213,6 +214,92 @@ def show_data_connection():
 
     else:
         st.info(" Configurează conexiunea și apasă butonul 'Încarcă Date' pentru a începe!")
+
+#Filtrare
+
+def show_data_filtering():
+    st.markdown('<h1 class="main-header"> Filtrare Date</h1>', unsafe_allow_html=True)
+
+    df = st.session_state['df'].copy()
+
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    st.markdown('<div class="sub-header">Filtrare Coloane Numerice</div>', unsafe_allow_html=True)
+
+    filtered_df = df.copy()
+
+    # -------------------- FILTRARE NUMERICĂ --------------------
+    if numeric_cols:
+        num_cols_selected = st.multiselect(
+            "Selectează coloanele numerice pentru filtrare:",
+            numeric_cols,
+            default=numeric_cols[:1]
+        )
+
+        for col in num_cols_selected:
+            min_val = float(df[col].min())
+            max_val = float(df[col].max())
+
+            selected_range = st.slider(
+                f"{col} (interval):",
+                min_value=min_val,
+                max_value=max_val,
+                value=(min_val, max_val)
+            )
+
+            filtered_df = filtered_df[
+                (filtered_df[col] >= selected_range[0]) &
+                (filtered_df[col] <= selected_range[1])
+            ]
+
+    else:
+        st.info("Nu există coloane numerice pentru filtrare.")
+
+    st.markdown('<div class="sub-header">Filtrare Coloane Categorice</div>', unsafe_allow_html=True)
+
+    # -------------------- FILTRARE CATEGORICĂ --------------------
+    if cat_cols:
+        cat_cols_selected = st.multiselect(
+            "Selectează coloanele categorice pentru filtrare:",
+            cat_cols
+        )
+
+        for col in cat_cols_selected:
+            unique_values = df[col].dropna().unique().tolist()
+
+            selected_values = st.multiselect(
+                f"Valori permise pentru {col}:",
+                unique_values,
+                default=unique_values
+            )
+
+            filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
+
+    else:
+        st.info("Nu există coloane categorice pentru filtrare.")
+
+    # -------------------- REZULTATE --------------------
+    st.markdown('<div class="sub-header">Rezultat Filtrare</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric("Rânduri inițiale", len(df))
+
+    with col2:
+        st.metric("Rânduri după filtrare", len(filtered_df))
+
+    # Procent păstrat
+    pct_remaining = (len(filtered_df) / len(df) * 100) if len(df) > 0 else 0
+    st.metric("Procent date păstrate", f"{pct_remaining:.2f}%")
+
+    st.markdown("### DataFrame Filtrat")
+    st.dataframe(filtered_df, use_container_width=True)
+
+    # Salvare în session_state
+    st.session_state['df_filtered_final'] = filtered_df
+
 
 # Curățarea Datelor
 def show_data_cleaning():
@@ -1135,6 +1222,8 @@ if __name__ == "__main__":
 
     if selected_module == " Incarcare date":
         show_data_connection()
+    elif selected_module == " Filtrare date":
+        show_data_filtering()
     elif selected_module == " Curatarea datelor":
         show_data_cleaning()
     elif selected_module == " Detectarea valorilor anormale":
