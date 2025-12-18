@@ -625,61 +625,8 @@ def show_string_processing():
     if not cat_cols:
         st.error("Nu există coloane text în dataset!")
         return
-    st.markdown('<div class="sub-header">Label Encoding</div>', unsafe_allow_html=True)
-
-    st.markdown("### Transformă Categorii în Numere")
-
-    cols_to_encode = st.multiselect(
-        "Selectează coloanele de transformat:",
-        cat_cols,
-        default=cat_cols[:2] if len(cat_cols) >= 2 else cat_cols
-    )
-
-    if cols_to_encode and st.button(" Aplică Label Encoding", type="primary"):
-        df_encoded = df.copy()
-
-        mappings = {}
-
-        for col in cols_to_encode:
-            le = LabelEncoder()
-            df_encoded[f'{col}_ENCODED'] = le.fit_transform(df_encoded[col].astype(str))
-
-            # Store mapping
-            mappings[col] = dict(zip(le.classes_, le.transform(le.classes_)))
-
-        st.session_state['df_encoded'] = df_encoded
-        st.success(f"   Transformate {len(cols_to_encode)} coloane!")
-
-        # Show results
-        for col in cols_to_encode:
-            with st.expander(f"      Mapare: {col}"):
-                st.markdown(f"### {col} → {col}_ENCODED")
-
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.markdown("**Original:**")
-                    st.dataframe(df[col].value_counts(), use_container_width=True)
-
-                with col2:
-                    st.markdown("**Encoded:**")
-                    mapping_df = pd.DataFrame({
-                        'Categorie': list(mappings[col].keys()),
-                        'Cod': list(mappings[col].values())
-                    }).sort_values('Cod')
-                    st.dataframe(mapping_df, use_container_width=True)
-
-                # Sample comparison
-                st.markdown("**Exemplu Transformare:**")
-                sample_df = pd.DataFrame({
-                    'Original': df[col].head(10),
-                    'Encoded': df_encoded[f'{col}_ENCODED'].head(10)
-                })
-                st.dataframe(sample_df, use_container_width=True)
-
 
     st.markdown('<div class="sub-header">Discretizare</div>', unsafe_allow_html=True)
-
 
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 
