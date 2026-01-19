@@ -1539,20 +1539,6 @@ def show_models():
                 random_state=42
             )
 
-    if st.button(" Train Models", type="primary"):
-        trained_models = {}
-
-        for name, model in model_configs.items():
-            full_pipeline = Pipeline([
-                ("preprocessor", base_pipeline),
-                ("model", model)
-            ])
-
-            full_pipeline.fit(X_train, y_train)
-            trained_models[name] = full_pipeline
-
-        st.session_state['trained_models'] = trained_models
-
         if st.button(" Train Models", type="primary"):
             trained_models = {}
             results = []
