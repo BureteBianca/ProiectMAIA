@@ -11,6 +11,12 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, No
     QuantileTransformer
 import warnings
 import pymongo
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
+from sklearn.feature_selection import SelectKBest, f_classif, f_regression
+from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings('ignore')
 
@@ -62,7 +68,8 @@ def sidebar_navigation():
         " Standardizare si normalizare",
         " Statistici descriptive",
         " Reprezentari grafice",
-        " Problem Setup - ML"
+        " Problem Setup - ML",
+        " Preprocesare & Pipeline - ML"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -1105,7 +1112,6 @@ def show_graphical_representations():
 def show_problem_setup():
     st.markdown('<h1 class="main-header"> Problem Setup</h1>', unsafe_allow_html=True)
 
-    # ================= CHECK DATA =================
     if 'df' not in st.session_state:
         st.warning("⚠️ Încarcă mai întâi un dataset.")
         return
@@ -1118,7 +1124,6 @@ def show_problem_setup():
 
     st.markdown('<div class="sub-header">Definirea Problemei ML</div>', unsafe_allow_html=True)
 
-    # ================= TARGET =================
     st.markdown("### 1️⃣ Selectare Target")
 
     target_col = st.selectbox(
@@ -1132,7 +1137,6 @@ def show_problem_setup():
         st.info("⬆️ Selectează coloana target pentru a continua.")
         return
 
-    # Determinare tip problemă
     unique_vals = df[target_col].dropna().nunique()
 
     if unique_vals <= 10:
@@ -1142,7 +1146,6 @@ def show_problem_setup():
 
     st.success(f"🧠 Tip problemă detectat automat: **{problem_type}**")
 
-    # ================= FEATURES =================
     st.markdown("### 2️⃣ Selectare Feature-uri")
 
     all_features = [col for col in df.columns if col != target_col]
@@ -1165,7 +1168,6 @@ def show_problem_setup():
         st.warning("⚠️ Selectează cel puțin un feature.")
         return
 
-    # ================= EXCLUDE =================
     st.markdown("### 3️⃣ Excludere Coloane (opțional)")
 
     excluded_cols = st.multiselect(
@@ -1179,7 +1181,6 @@ def show_problem_setup():
         st.error("❌ Toate feature-urile au fost excluse.")
         return
 
-    # ================= SUMMARY =================
     st.markdown('<div class="sub-header"> Rezumat Configurație</div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
@@ -1199,12 +1200,124 @@ def show_problem_setup():
         use_container_width=True
     )
 
-    # ================= SAVE STATE =================
     st.session_state['target'] = target_col
     st.session_state['features'] = final_features
     st.session_state['problem_type'] = problem_type
 
     st.success("✅ Problem Setup salvat cu succes!")
+
+def show_preprocessing_pipeline():
+    st.markdown('<h1 class="main-header"> Preprocesare & Pipeline</h1>', unsafe_allow_html=True)
+
+    required_keys = ['df', 'target', 'features', 'problem_type']
+    if not all(k in st.session_state for k in required_keys):
+        st.warning("Finalizează mai întâi Problem Setup.")
+        return
+
+    df = st.session_state['df']
+    target = st.session_state['target']
+    features = st.session_state['features']
+    problem_type = st.session_state['problem_type']
+
+    X = df[features]
+    y = df[target]
+
+    numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_features = X.select_dtypes(include=['object']).columns.tolist()
+
+    st.markdown("### Opțiuni Preprocesare")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        num_imputer = st.selectbox(
+            "Imputare numerică:",
+            ["mean", "median", "most_frequent"]
+        )
+
+        scaler_option = st.selectbox(
+            "Scalare numerică:",
+            ["StandardScaler", "MinMaxScaler", "Fără scalare"]
+        )
+
+    with col2:
+        cat_imputer = st.selectbox(
+            "Imputare categorică:",
+            ["most_frequent"]
+        )
+
+        use_outliers = st.checkbox("Eliminare outlieri (IQR simplu)")
+        use_feature_selection = st.checkbox("Selecție feature-uri (SelectKBest)")
+
+    if use_outliers and numeric_features:
+        Q1 = X[numeric_features].quantile(0.25)
+        Q3 = X[numeric_features].quantile(0.75)
+        IQR = Q3 - Q1
+
+        mask = ~((X[numeric_features] < (Q1 - 1.5 * IQR)) |
+                 (X[numeric_features] > (Q3 + 1.5 * IQR))).any(axis=1)
+
+        X = X.loc[mask]
+        y = y.loc[mask]
+
+        st.info(f"🧹 Outlieri eliminați. Rânduri rămase: {len(X)}")
+
+    num_steps = [("imputer", SimpleImputer(strategy=num_imputer))]
+
+    if scaler_option == "StandardScaler":
+        num_steps.append(("scaler", StandardScaler()))
+    elif scaler_option == "MinMaxScaler":
+        num_steps.append(("scaler", MinMaxScaler()))
+
+    numeric_pipeline = Pipeline(num_steps)
+
+    categorical_pipeline = Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+    ])
+
+    preprocessor = ColumnTransformer([
+        ("num", numeric_pipeline, numeric_features),
+        ("cat", categorical_pipeline, categorical_features)
+    ])
+    steps = [("preprocessor", preprocessor)]
+
+    if use_feature_selection:
+        k = st.slider("Număr feature-uri selectate (K):", 1, 50, 10)
+
+        selector = SelectKBest(
+            score_func=f_classif if problem_type == "Clasificare" else f_regression,
+            k=k
+        )
+        steps.append(("feature_selection", selector))
+
+    full_pipeline = Pipeline(steps)
+
+    test_size = st.slider("Test size:", 0.1, 0.5, 0.2)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=test_size,
+        random_state=42,
+        stratify=y if problem_type == "Clasificare" else None
+    )
+
+    if st.button(" Aplică Pipeline", type="primary"):
+        full_pipeline.fit(X_train, y_train)
+
+        st.session_state['pipeline'] = full_pipeline
+        st.session_state['X_train'] = X_train
+        st.session_state['X_test'] = X_test
+        st.session_state['y_train'] = y_train
+        st.session_state['y_test'] = y_test
+
+        st.success(" Pipeline antrenat și salvat!")
+
+        X_train_transformed = full_pipeline.transform(X_train)
+
+        st.markdown("### Rezultat Preprocesare")
+        st.write("Dimensiune X_train după pipeline:", X_train_transformed.shape)
+
 
 
 if __name__ == "__main__":
@@ -1227,4 +1340,6 @@ if __name__ == "__main__":
     elif selected_module == " Reprezentari grafice":
         show_graphical_representations()
     elif selected_module == " Problem Setup - ML":
+        show_problem_setup()
+    elif selected_module == " Preprocesare & Pipeline - ML":
         show_problem_setup()
