@@ -17,6 +17,9 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
 from sklearn.feature_selection import SelectKBest, f_classif, f_regression
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.svm import SVC, SVR
 
 
 warnings.filterwarnings('ignore')
@@ -71,7 +74,8 @@ def sidebar_navigation():
         " Reprezentari grafice",
         " Problem Setup - ML",
         " Preprocesare & Pipeline - ML",
-        " Train/Test Split - ML"
+        " Train/Test Split - ML",
+        " Models - ML"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -1440,6 +1444,113 @@ def show_train_test_split():
         st.write("Validation:", len(st.session_state['X_val']))
     st.write("Test:", len(st.session_state['X_test']))
 
+def show_models():
+    st.markdown('<h1 class="main-header"> Models</h1>', unsafe_allow_html=True)
+
+    required_keys = ['pipeline', 'X_train', 'y_train', 'problem_type']
+    if not all(k in st.session_state for k in required_keys):
+        st.warning("Finalizează mai întâi Split + Preprocesare.")
+        return
+
+    base_pipeline = st.session_state['pipeline']
+    X_train = st.session_state['X_train']
+    y_train = st.session_state['y_train']
+    problem_type = st.session_state['problem_type']
+
+    st.markdown("### Selectare Algoritmi")
+
+    if problem_type == "Clasificare":
+        available_models = {
+            "Logistic Regression": "logreg",
+            "Random Forest Classifier": "rf",
+            "SVM (SVC)": "svc"
+        }
+    else:
+        available_models = {
+            "Linear Regression": "linreg",
+            "Ridge Regression": "ridge",
+            "Random Forest Regressor": "rf"
+        }
+
+    selected_models = st.multiselect(
+        "Alege algoritmi:",
+        options=list(available_models.keys()),
+        key="models_multiselect"
+    )
+
+    if not selected_models:
+        st.info("Selectează cel puțin un algoritm.")
+        return
+
+    st.markdown("### Hiperparametri")
+
+    model_configs = {}
+
+    for model_name in selected_models:
+        st.subheader(model_name)
+
+        if model_name == "Logistic Regression":
+            C = st.slider("C (regularizare)", 0.01, 10.0, 1.0, key="logreg_c")
+            max_iter = st.slider("max_iter", 100, 1000, 300, key="logreg_iter")
+
+            model_configs[model_name] = LogisticRegression(
+                C=C,
+                max_iter=max_iter
+            )
+
+        elif model_name == "Random Forest Classifier":
+            n_estimators = st.slider("n_estimators", 50, 300, 100, key="rfc_estimators")
+            max_depth = st.slider("max_depth", 2, 20, 10, key="rfc_depth")
+
+            model_configs[model_name] = RandomForestClassifier(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                random_state=42
+            )
+
+        elif model_name == "SVM (SVC)":
+            C = st.slider("C", 0.1, 10.0, 1.0, key="svc_c")
+            kernel = st.selectbox("kernel", ["linear", "rbf"], key="svc_kernel")
+
+            model_configs[model_name] = SVC(
+                C=C,
+                kernel=kernel
+            )
+
+        elif model_name == "Linear Regression":
+            model_configs[model_name] = LinearRegression()
+
+        elif model_name == "Ridge Regression":
+            alpha = st.slider("alpha", 0.01, 10.0, 1.0, key="ridge_alpha")
+
+            model_configs[model_name] = Ridge(alpha=alpha)
+
+        elif model_name == "Random Forest Regressor":
+            n_estimators = st.slider("n_estimators", 50, 300, 100, key="rfr_estimators")
+            max_depth = st.slider("max_depth", 2, 20, 10, key="rfr_depth")
+
+            model_configs[model_name] = RandomForestRegressor(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                random_state=42
+            )
+
+    if st.button(" Train Models", type="primary"):
+        trained_models = {}
+
+        for name, model in model_configs.items():
+            full_pipeline = Pipeline([
+                ("preprocessor", base_pipeline),
+                ("model", model)
+            ])
+
+            full_pipeline.fit(X_train, y_train)
+            trained_models[name] = full_pipeline
+
+        st.session_state['trained_models'] = trained_models
+
+        st.success(" Modelele au fost antrenate cu succes!")
+
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
@@ -1466,4 +1577,7 @@ if __name__ == "__main__":
         show_preprocessing_pipeline()
     elif selected_module == " Train/Test Split - ML":
         show_train_test_split()
+    elif selected_module == " Models - ML":
+        show_models()
+
 
