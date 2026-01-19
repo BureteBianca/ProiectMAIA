@@ -50,7 +50,7 @@ def load_data(uploaded_file):
 
     return df
 def sidebar_navigation():
-    st.sidebar.markdown("#  Proiect MAIA")
+    st.sidebar.markdown("#  Proiect MAIA + ML")
     st.sidebar.markdown("### Navighează:")
 
     sections = [
