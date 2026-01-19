@@ -61,7 +61,8 @@ def sidebar_navigation():
         " Prelucrarea sirurilor de caractere",
         " Standardizare si normalizare",
         " Statistici descriptive",
-        " Reprezentari grafice"
+        " Reprezentari grafice",
+        " Problem Setup - ML"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -1100,6 +1101,112 @@ def show_graphical_representations():
         st.error(f"Eroare la generarea graficului: {str(e)}")
         st.info("Verifica daca exista valori valide in coloanele selectate.")
 
+
+def show_problem_setup():
+    st.markdown('<h1 class="main-header"> Problem Setup</h1>', unsafe_allow_html=True)
+
+    # ================= CHECK DATA =================
+    if 'df' not in st.session_state:
+        st.warning("⚠️ Încarcă mai întâi un dataset.")
+        return
+
+    df = st.session_state['df']
+
+    if df.empty:
+        st.error("Dataset-ul este gol.")
+        return
+
+    st.markdown('<div class="sub-header">Definirea Problemei ML</div>', unsafe_allow_html=True)
+
+    # ================= TARGET =================
+    st.markdown("### 1️⃣ Selectare Target")
+
+    target_col = st.selectbox(
+        "Alege coloana țintă (target):",
+        options=list(df.columns),
+        index=None,
+        placeholder="Selectează coloana target"
+    )
+
+    if target_col is None:
+        st.info("⬆️ Selectează coloana target pentru a continua.")
+        return
+
+    # Determinare tip problemă
+    unique_vals = df[target_col].dropna().nunique()
+
+    if unique_vals <= 10:
+        problem_type = "Clasificare"
+    else:
+        problem_type = "Regresie"
+
+    st.success(f"🧠 Tip problemă detectat automat: **{problem_type}**")
+
+    # ================= FEATURES =================
+    st.markdown("### 2️⃣ Selectare Feature-uri")
+
+    all_features = [col for col in df.columns if col != target_col]
+
+    select_all = st.checkbox(
+        "Selectează toate feature-urile",
+        value=True
+    )
+
+    if select_all:
+        selected_features = all_features
+    else:
+        selected_features = st.multiselect(
+            "Alege feature-urile:",
+            options=all_features,
+            default=all_features
+        )
+
+    if not selected_features:
+        st.warning("⚠️ Selectează cel puțin un feature.")
+        return
+
+    # ================= EXCLUDE =================
+    st.markdown("### 3️⃣ Excludere Coloane (opțional)")
+
+    excluded_cols = st.multiselect(
+        "Coloane de exclus din feature-uri:",
+        options=selected_features
+    )
+
+    final_features = [col for col in selected_features if col not in excluded_cols]
+
+    if not final_features:
+        st.error("❌ Toate feature-urile au fost excluse.")
+        return
+
+    # ================= SUMMARY =================
+    st.markdown('<div class="sub-header"> Rezumat Configurație</div>', unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Target", target_col)
+
+    with col2:
+        st.metric("Tip Problemă", problem_type)
+
+    with col3:
+        st.metric("Nr. Feature-uri", len(final_features))
+
+    st.markdown("### Feature-uri Finale")
+    st.dataframe(
+        pd.DataFrame({"Feature": final_features}),
+        use_container_width=True
+    )
+
+    # ================= SAVE STATE =================
+    st.session_state['target'] = target_col
+    st.session_state['features'] = final_features
+    st.session_state['problem_type'] = problem_type
+
+    st.success("✅ Problem Setup salvat cu succes!")
+
+
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
 
@@ -1119,3 +1226,5 @@ if __name__ == "__main__":
         show_descriptive_statistics()
     elif selected_module == " Reprezentari grafice":
         show_graphical_representations()
+    elif selected_module == " Problem Setup":
+        show_problem_setup()
