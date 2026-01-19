@@ -24,6 +24,11 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     mean_squared_error, mean_absolute_error, r2_score
 )
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    confusion_matrix, roc_auc_score,
+    mean_absolute_error, mean_squared_error, r2_score
+)
 
 
 warnings.filterwarnings('ignore')
@@ -79,7 +84,8 @@ def sidebar_navigation():
         " Problem Setup - ML",
         " Preprocesare & Pipeline - ML",
         " Train/Test Split - ML",
-        " Models - ML"
+        " Models - ML",
+        " Evaluare si comparare - ML"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -1580,6 +1586,84 @@ def show_models():
             st.markdown("## 📊 Rezultate modele")
             st.dataframe(results_df, use_container_width=True)
 
+def show_evaluation():
+
+    st.header("📊 Evaluation & Model Comparison")
+
+    if "trained_models" not in st.session_state:
+        st.warning("⚠️ Antrenează modelele mai întâi.")
+        return
+
+    X_test = st.session_state["X_test"]
+    y_test = st.session_state["y_test"]
+    trained_models = st.session_state["trained_models"]
+    problem_type = st.session_state["problem_type"]
+
+    results = []
+
+    for name, pipeline in trained_models.items():
+
+        y_pred = pipeline.predict(X_test)
+
+        if problem_type == "Clasificare":
+
+            row = {
+                "Model": name,
+                "Accuracy": accuracy_score(y_test, y_pred),
+                "Precision": precision_score(y_test, y_pred, average="weighted", zero_division=0),
+                "Recall": recall_score(y_test, y_pred, average="weighted"),
+                "F1": f1_score(y_test, y_pred, average="weighted")
+            }
+
+            if y_test.nunique() == 2 and hasattr(pipeline, "predict_proba"):
+                y_proba = pipeline.predict_proba(X_test)[:, 1]
+                row["ROC-AUC"] = roc_auc_score(y_test, y_proba)
+
+        else:
+            row = {
+                "Model": name,
+                "MAE": mean_absolute_error(y_test, y_pred),
+                "RMSE": mean_squared_error(y_test, y_pred, squared=False),
+                "R2": r2_score(y_test, y_pred)
+            }
+
+        results.append(row)
+
+    results_df = pd.DataFrame(results)
+
+    st.subheader("📋 Metrici pe setul de test")
+    st.dataframe(results_df, use_container_width=True)
+
+    if problem_type == "Clasificare":
+        metric = st.selectbox("Metrică pentru best model", ["Accuracy", "F1", "Recall", "Precision", "ROC-AUC"])
+        best_model = results_df.loc[results_df[metric].idxmax(), "Model"]
+    else:
+        metric = st.selectbox("Metrică pentru best model", ["R2", "RMSE", "MAE"])
+        best_model = results_df.loc[
+            results_df[metric].idxmin() if metric != "R2" else results_df[metric].idxmax(),
+            "Model"
+        ]
+
+    st.success(f"🏆 Best model ({metric}): **{best_model}**")
+
+    if problem_type == "Clasificare":
+        st.subheader("🔍 Confusion Matrix")
+
+        model_name = st.selectbox("Alege model", list(trained_models.keys()))
+        cm = confusion_matrix(y_test, trained_models[model_name].predict(X_test))
+
+        fig, ax = plt.subplots()
+        ax.imshow(cm)
+        ax.set_title(f"Confusion Matrix — {model_name}")
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("Actual")
+
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, cm[i, j], ha="center", va="center")
+
+        st.pyplot(fig)
+
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
@@ -1608,5 +1692,8 @@ if __name__ == "__main__":
         show_train_test_split()
     elif selected_module == " Models - ML":
         show_models()
+    elif selected_module == " Evaluare si comparare - ML":
+        show_evaluation()
+
 
 
