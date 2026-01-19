@@ -1226,5 +1226,5 @@ if __name__ == "__main__":
         show_descriptive_statistics()
     elif selected_module == " Reprezentari grafice":
         show_graphical_representations()
-    elif selected_module == " Problem Setup":
+    elif selected_module == " Problem Setup - ML":
         show_problem_setup()
