@@ -18,6 +18,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
 from sklearn.feature_selection import SelectKBest, f_classif, f_regression
 from sklearn.model_selection import train_test_split
 
+
 warnings.filterwarnings('ignore')
 
 # Configurare pagină
@@ -69,7 +70,8 @@ def sidebar_navigation():
         " Statistici descriptive",
         " Reprezentari grafice",
         " Problem Setup - ML",
-        " Preprocesare & Pipeline - ML"
+        " Preprocesare & Pipeline - ML",
+        " Train/Test Split - ML"
     ]
 
     selected = st.sidebar.radio("Selectează Modulul:", sections)
@@ -1324,6 +1326,125 @@ def show_preprocessing_pipeline():
         st.markdown("### Rezultat Preprocesare")
         st.write("Dimensiune X_train după pipeline:", X_train_transformed.shape)
 
+def show_train_test_split():
+    st.markdown('<h1 class="main-header"> Train / Test Split</h1>', unsafe_allow_html=True)
+
+    # ================= CHECK =================
+    required_keys = ['df', 'target', 'features', 'problem_type']
+    if not all(k in st.session_state for k in required_keys):
+        st.warning("Finalizează mai întâi Problem Setup.")
+        return
+
+    df = st.session_state['df']
+    target = st.session_state['target']
+    features = st.session_state['features']
+    problem_type = st.session_state['problem_type']
+
+    X = df[features]
+    y = df[target]
+
+    # ================= OPTIONS =================
+    st.markdown("### Opțiuni Split")
+
+    split_type = st.radio(
+        "Tip split:",
+        ["Train / Test", "Train / Validation / Test"],
+        key="split_type_radio"
+    )
+
+    random_state = st.number_input(
+        "Random state:",
+        min_value=0,
+        max_value=9999,
+        value=42,
+        step=1,
+        key="random_state_input"
+    )
+
+    # ================= STRATIFY =================
+    if problem_type == "Clasificare" and y.value_counts().min() >= 2:
+        stratify_option = y
+        st.info("Stratificare activă (clasificare).")
+    else:
+        stratify_option = None
+        st.info("Fără stratificare (regresie sau clase rare).")
+
+    # ================= SPLIT =================
+    if split_type == "Train / Test":
+        test_size = st.slider(
+            "Proporție Test:",
+            0.1,
+            0.5,
+            0.2,
+            key="test_size_split"
+        )
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=stratify_option
+        )
+
+        st.session_state['X_train'] = X_train
+        st.session_state['X_test'] = X_test
+        st.session_state['y_train'] = y_train
+        st.session_state['y_test'] = y_test
+
+        st.success("Split Train / Test realizat!")
+
+    else:
+        test_size = st.slider(
+            "Proporție Test:",
+            0.1,
+            0.4,
+            0.2,
+            key="test_size_split_3way"
+        )
+
+        val_size = st.slider(
+            "Proporție Validation:",
+            0.1,
+            0.4,
+            0.2,
+            key="val_size_split"
+        )
+
+        X_temp, X_test, y_temp, y_test = train_test_split(
+            X,
+            y,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=stratify_option
+        )
+
+        # recalculăm proporția validation din ce a rămas
+        val_ratio_adjusted = val_size / (1 - test_size)
+
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_temp,
+            y_temp,
+            test_size=val_ratio_adjusted,
+            random_state=random_state,
+            stratify=stratify_option if stratify_option is not None else None
+        )
+
+        st.session_state['X_train'] = X_train
+        st.session_state['X_val'] = X_val
+        st.session_state['X_test'] = X_test
+        st.session_state['y_train'] = y_train
+        st.session_state['y_val'] = y_val
+        st.session_state['y_test'] = y_test
+
+        st.success("Split Train / Validation / Test realizat!")
+
+    # ================= INFO =================
+    st.markdown("### Dimensiuni seturi")
+    st.write("Train:", len(st.session_state['X_train']))
+    if 'X_val' in st.session_state:
+        st.write("Validation:", len(st.session_state['X_val']))
+    st.write("Test:", len(st.session_state['X_test']))
 
 
 if __name__ == "__main__":
@@ -1349,3 +1470,6 @@ if __name__ == "__main__":
         show_problem_setup()
     elif selected_module == " Preprocesare & Pipeline - ML":
         show_preprocessing_pipeline()
+    elif selected_module == " Train/Test Split - ML":
+        show_train_test_split()
+
