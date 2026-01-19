@@ -1342,4 +1342,4 @@ if __name__ == "__main__":
     elif selected_module == " Problem Setup - ML":
         show_problem_setup()
     elif selected_module == " Preprocesare & Pipeline - ML":
-        show_problem_setup()
+        show_preprocessing_pipeline()
