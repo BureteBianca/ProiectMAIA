@@ -1329,7 +1329,6 @@ def show_preprocessing_pipeline():
 def show_train_test_split():
     st.markdown('<h1 class="main-header"> Train / Test Split</h1>', unsafe_allow_html=True)
 
-    # ================= CHECK =================
     required_keys = ['df', 'target', 'features', 'problem_type']
     if not all(k in st.session_state for k in required_keys):
         st.warning("Finalizează mai întâi Problem Setup.")
@@ -1343,7 +1342,6 @@ def show_train_test_split():
     X = df[features]
     y = df[target]
 
-    # ================= OPTIONS =================
     st.markdown("### Opțiuni Split")
 
     split_type = st.radio(
@@ -1361,7 +1359,6 @@ def show_train_test_split():
         key="random_state_input"
     )
 
-    # ================= STRATIFY =================
     if problem_type == "Clasificare" and y.value_counts().min() >= 2:
         stratify_option = y
         st.info("Stratificare activă (clasificare).")
@@ -1369,7 +1366,6 @@ def show_train_test_split():
         stratify_option = None
         st.info("Fără stratificare (regresie sau clase rare).")
 
-    # ================= SPLIT =================
     if split_type == "Train / Test":
         test_size = st.slider(
             "Proporție Test:",
@@ -1419,7 +1415,6 @@ def show_train_test_split():
             stratify=stratify_option
         )
 
-        # recalculăm proporția validation din ce a rămas
         val_ratio_adjusted = val_size / (1 - test_size)
 
         X_train, X_val, y_train, y_val = train_test_split(
@@ -1439,7 +1434,6 @@ def show_train_test_split():
 
         st.success("Split Train / Validation / Test realizat!")
 
-    # ================= INFO =================
     st.markdown("### Dimensiuni seturi")
     st.write("Train:", len(st.session_state['X_train']))
     if 'X_val' in st.session_state:
