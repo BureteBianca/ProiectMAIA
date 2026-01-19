@@ -1601,7 +1601,6 @@ def show_evaluation():
 
     results = []
 
-    # ================= METRICS =================
     for name, pipeline in trained_models.items():
 
         y_pred = pipeline.predict(X_test)
@@ -1620,7 +1619,7 @@ def show_evaluation():
                 y_proba = pipeline.predict_proba(X_test)[:, 1]
                 row["ROC-AUC"] = roc_auc_score(y_test, y_proba)
 
-        else:  # REGRESIE
+        else:
             row = {
                 "Model": name,
                 "MAE": mean_absolute_error(y_test, y_pred),
@@ -1632,7 +1631,6 @@ def show_evaluation():
 
     results_df = pd.DataFrame(results)
 
-    # ================= TABLE =================
     st.subheader("📋 Metrici pe setul de test")
 
     metric_cols = results_df.columns.drop("Model")
@@ -1641,7 +1639,6 @@ def show_evaluation():
         use_container_width=True
     )
 
-    # ================= BEST MODEL =================
     if problem_type == "Clasificare":
         metric = st.selectbox(
             "Metrică pentru best model",
@@ -1660,7 +1657,6 @@ def show_evaluation():
         f"📊 **{metric} = {best_value:.3f}**"
     )
 
-    # ================= INTERPRETATION =================
     if problem_type == "Clasificare":
         if metric == "Recall":
             st.info(
@@ -1681,7 +1677,6 @@ def show_evaluation():
                 "⚖️ **F1-score** este un echilibru între Precision și Recall."
             )
 
-    # ================= CONFUSION MATRIX =================
     if problem_type == "Clasificare":
         st.subheader("🔍 Confusion Matrix")
 
