@@ -1601,6 +1601,7 @@ def show_evaluation():
 
     results = []
 
+    # ================= METRICS =================
     for name, pipeline in trained_models.items():
 
         y_pred = pipeline.predict(X_test)
@@ -1619,7 +1620,7 @@ def show_evaluation():
                 y_proba = pipeline.predict_proba(X_test)[:, 1]
                 row["ROC-AUC"] = roc_auc_score(y_test, y_proba)
 
-        else:
+        else:  # REGRESIE
             row = {
                 "Model": name,
                 "MAE": mean_absolute_error(y_test, y_pred),
@@ -1631,26 +1632,69 @@ def show_evaluation():
 
     results_df = pd.DataFrame(results)
 
+    # ================= TABLE =================
     st.subheader("📋 Metrici pe setul de test")
-    st.dataframe(results_df, use_container_width=True)
 
+    metric_cols = results_df.columns.drop("Model")
+    st.dataframe(
+        results_df.style.format({c: "{:.3f}" for c in metric_cols}),
+        use_container_width=True
+    )
+
+    # ================= BEST MODEL =================
     if problem_type == "Clasificare":
-        metric = st.selectbox("Metrică pentru best model", ["Accuracy", "F1", "Recall", "Precision", "ROC-AUC"])
-        best_model = results_df.loc[results_df[metric].idxmax(), "Model"]
+        metric = st.selectbox(
+            "Metrică pentru best model",
+            [c for c in results_df.columns if c != "Model"]
+        )
+        best_idx = results_df[metric].idxmax()
     else:
         metric = st.selectbox("Metrică pentru best model", ["R2", "RMSE", "MAE"])
-        best_model = results_df.loc[
-            results_df[metric].idxmin() if metric != "R2" else results_df[metric].idxmax(),
-            "Model"
-        ]
+        best_idx = results_df[metric].idxmax() if metric == "R2" else results_df[metric].idxmin()
 
-    st.success(f"🏆 Best model ({metric}): **{best_model}**")
+    best_model = results_df.loc[best_idx, "Model"]
+    best_value = results_df.loc[best_idx, metric]
 
+    st.success(
+        f"🏆 **Best model:** {best_model}\n\n"
+        f"📊 **{metric} = {best_value:.3f}**"
+    )
+
+    # ================= INTERPRETATION =================
+    if problem_type == "Clasificare":
+        if metric == "Recall":
+            st.info(
+                "🔍 **Recall** măsoară cât de bine sunt identificate cazurile pozitive.\n"
+                "În acest context: cât de bine detectează modelul clienții care intră în default."
+            )
+        elif metric == "Precision":
+            st.info(
+                "🎯 **Precision** arată cât de corecte sunt predicțiile pozitive.\n"
+                "Când modelul spune *default*, cât de des are dreptate."
+            )
+        elif metric == "Accuracy":
+            st.info(
+                "📈 **Accuracy** reprezintă proporția totală de predicții corecte."
+            )
+        elif metric == "F1":
+            st.info(
+                "⚖️ **F1-score** este un echilibru între Precision și Recall."
+            )
+
+    # ================= CONFUSION MATRIX =================
     if problem_type == "Clasificare":
         st.subheader("🔍 Confusion Matrix")
 
-        model_name = st.selectbox("Alege model", list(trained_models.keys()))
-        cm = confusion_matrix(y_test, trained_models[model_name].predict(X_test))
+        model_name = st.selectbox(
+            "Alege model pentru Confusion Matrix",
+            list(trained_models.keys()),
+            key="cm_model_select"
+        )
+
+        cm = confusion_matrix(
+            y_test,
+            trained_models[model_name].predict(X_test)
+        )
 
         fig, ax = plt.subplots()
         ax.imshow(cm)
@@ -1663,7 +1707,6 @@ def show_evaluation():
                 ax.text(j, i, cm[i, j], ha="center", va="center")
 
         st.pyplot(fig)
-
 
 if __name__ == "__main__":
     selected_module = sidebar_navigation()
