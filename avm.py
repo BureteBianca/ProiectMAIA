@@ -1470,21 +1470,21 @@ def show_models():
     st.markdown("### Selectare Algoritmi")
 
     if problem_type == "Clasificare":
-        available_models = {
-            "Logistic Regression": "logreg",
-            "Random Forest Classifier": "rf",
-            "SVM (SVC)": "svc"
-        }
+        available_models = [
+            "Logistic Regression",
+            "Random Forest Classifier",
+            "SVM (SVC)"
+        ]
     else:
-        available_models = {
-            "Linear Regression": "linreg",
-            "Ridge Regression": "ridge",
-            "Random Forest Regressor": "rf"
-        }
+        available_models = [
+            "Linear Regression",
+            "Ridge Regression",
+            "Random Forest Regressor"
+        ]
 
     selected_models = st.multiselect(
         "Alege algoritmi:",
-        options=list(available_models.keys()),
+        options=available_models,
         key="models_multiselect"
     )
 
@@ -1493,15 +1493,22 @@ def show_models():
         return
 
     st.markdown("### Hiperparametri")
-
     model_configs = {}
 
     for model_name in selected_models:
         st.subheader(model_name)
 
         if model_name == "Logistic Regression":
-            C = st.slider("C (regularizare)", 0.01, 10.0, 1.0, key="logreg_c")
-            max_iter = st.slider("max_iter", 100, 1000, 300, key="logreg_iter")
+            C = st.slider(
+                "C (regularizare)",
+                0.01, 10.0, 1.0,
+                key=f"logreg_c_{model_name}"
+            )
+            max_iter = st.slider(
+                "max_iter",
+                100, 1000, 300,
+                key=f"logreg_iter_{model_name}"
+            )
 
             model_configs[model_name] = LogisticRegression(
                 C=C,
@@ -1509,8 +1516,16 @@ def show_models():
             )
 
         elif model_name == "Random Forest Classifier":
-            n_estimators = st.slider("n_estimators", 50, 300, 100, key="rfc_estimators")
-            max_depth = st.slider("max_depth", 2, 20, 10, key="rfc_depth")
+            n_estimators = st.slider(
+                "n_estimators",
+                50, 300, 100,
+                key=f"rfc_estimators_{model_name}"
+            )
+            max_depth = st.slider(
+                "max_depth",
+                2, 20, 10,
+                key=f"rfc_depth_{model_name}"
+            )
 
             model_configs[model_name] = RandomForestClassifier(
                 n_estimators=n_estimators,
@@ -1519,25 +1534,46 @@ def show_models():
             )
 
         elif model_name == "SVM (SVC)":
-            C = st.slider("C", 0.1, 10.0, 1.0, key="svc_c")
-            kernel = st.selectbox("kernel", ["linear", "rbf"], key="svc_kernel")
+            C = st.slider(
+                "C",
+                0.1, 10.0, 1.0,
+                key=f"svc_c_{model_name}"
+            )
+            kernel = st.selectbox(
+                "kernel",
+                ["linear", "rbf"],
+                key=f"svc_kernel_{model_name}"
+            )
 
             model_configs[model_name] = SVC(
                 C=C,
-                kernel=kernel
+                kernel=kernel,
+                probability=True
             )
 
         elif model_name == "Linear Regression":
             model_configs[model_name] = LinearRegression()
 
         elif model_name == "Ridge Regression":
-            alpha = st.slider("alpha", 0.01, 10.0, 1.0, key="ridge_alpha")
+            alpha = st.slider(
+                "alpha",
+                0.01, 10.0, 1.0,
+                key=f"ridge_alpha_{model_name}"
+            )
 
             model_configs[model_name] = Ridge(alpha=alpha)
 
         elif model_name == "Random Forest Regressor":
-            n_estimators = st.slider("n_estimators", 50, 300, 100, key="rfr_estimators")
-            max_depth = st.slider("max_depth", 2, 20, 10, key="rfr_depth")
+            n_estimators = st.slider(
+                "n_estimators",
+                50, 300, 100,
+                key=f"rfr_estimators_{model_name}"
+            )
+            max_depth = st.slider(
+                "max_depth",
+                2, 20, 10,
+                key=f"rfr_depth_{model_name}"
+            )
 
             model_configs[model_name] = RandomForestRegressor(
                 n_estimators=n_estimators,
@@ -1545,46 +1581,22 @@ def show_models():
                 random_state=42
             )
 
-        if st.button(" Train Models", type="primary"):
-            trained_models = {}
-            results = []
+    if st.button("🚀 Train Models", type="primary", key="train_models_btn"):
 
-            X_test = st.session_state.get("X_test")
-            y_test = st.session_state.get("y_test")
+        trained_models = {}
 
-            for name, model in model_configs.items():
-                full_pipeline = Pipeline([
-                    ("preprocessor", base_pipeline),
-                    ("model", model)
-                ])
+        for name, model in model_configs.items():
+            full_pipeline = Pipeline([
+                ("preprocessor", base_pipeline),
+                ("model", model)
+            ])
 
-                full_pipeline.fit(X_train, y_train)
-                trained_models[name] = full_pipeline
+            full_pipeline.fit(X_train, y_train)
+            trained_models[name] = full_pipeline
 
-                y_pred = full_pipeline.predict(X_test)
+        st.session_state['trained_models'] = trained_models
+        st.success("✅ Modelele au fost antrenate cu succes!")
 
-                if problem_type == "Clasificare":
-                    results.append({
-                        "Model": name,
-                        "Accuracy": accuracy_score(y_test, y_pred),
-                        "Precision": precision_score(y_test, y_pred, average="weighted", zero_division=0),
-                        "Recall": recall_score(y_test, y_pred, average="weighted"),
-                        "F1-score": f1_score(y_test, y_pred, average="weighted")
-                    })
-                else:
-                    results.append({
-                        "Model": name,
-                        "RMSE": mean_squared_error(y_test, y_pred, squared=False),
-                        "MAE": mean_absolute_error(y_test, y_pred),
-                        "R2": r2_score(y_test, y_pred)
-                    })
-
-            results_df = pd.DataFrame(results)
-            st.session_state['trained_models'] = trained_models
-            st.session_state['model_results'] = results_df
-
-            st.markdown("## 📊 Rezultate modele")
-            st.dataframe(results_df, use_container_width=True)
 
 def show_evaluation():
 
