@@ -1295,11 +1295,19 @@ def show_preprocessing_pipeline():
 
     test_size = st.slider("Test size:", 0.1, 0.5, 0.2)
 
+    test_size = st.slider("Test size:", 0.1, 0.5, 0.2)
+
+    if problem_type == "Clasificare" and y.value_counts().min() >= 2:
+        stratify_option = y
+    else:
+        stratify_option = None
+
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=test_size,
         random_state=42,
-        stratify=y if problem_type == "Clasificare" else None
+        stratify=stratify_option
     )
 
     if st.button(" Aplică Pipeline", type="primary"):
