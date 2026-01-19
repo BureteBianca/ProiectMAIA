@@ -1583,7 +1583,9 @@ def show_models():
 
     if st.button("🚀 Train Models", type="primary", key="train_models_btn"):
 
-        trained_models = {}
+        trained_models = []
+
+        st.subheader("📦 Modele antrenate")
 
         for name, model in model_configs.items():
             full_pipeline = Pipeline([
@@ -1592,10 +1594,24 @@ def show_models():
             ])
 
             full_pipeline.fit(X_train, y_train)
-            trained_models[name] = full_pipeline
 
-        st.session_state['trained_models'] = trained_models
+            trained_models.append({
+                "Model": name,
+                "Parameters": model.get_params()
+            })
+
+        trained_df = pd.DataFrame(trained_models)
+
+        st.session_state['trained_models'] = {
+            row["Model"]: Pipeline([
+                ("preprocessor", base_pipeline),
+                ("model", model_configs[row["Model"]])
+            ])
+            for row in trained_df.to_dict("records")
+        }
+
         st.success("✅ Modelele au fost antrenate cu succes!")
+        st.dataframe(trained_df, use_container_width=True)
 
 
 def show_evaluation():
