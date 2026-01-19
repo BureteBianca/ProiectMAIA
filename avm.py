@@ -20,6 +20,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.svm import SVC, SVR
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    mean_squared_error, mean_absolute_error, r2_score
+)
 
 
 warnings.filterwarnings('ignore')
@@ -1549,7 +1553,46 @@ def show_models():
 
         st.session_state['trained_models'] = trained_models
 
-        st.success(" Modelele au fost antrenate cu succes!")
+        if st.button(" Train Models", type="primary"):
+            trained_models = {}
+            results = []
+
+            X_test = st.session_state.get("X_test")
+            y_test = st.session_state.get("y_test")
+
+            for name, model in model_configs.items():
+                full_pipeline = Pipeline([
+                    ("preprocessor", base_pipeline),
+                    ("model", model)
+                ])
+
+                full_pipeline.fit(X_train, y_train)
+                trained_models[name] = full_pipeline
+
+                y_pred = full_pipeline.predict(X_test)
+
+                if problem_type == "Clasificare":
+                    results.append({
+                        "Model": name,
+                        "Accuracy": accuracy_score(y_test, y_pred),
+                        "Precision": precision_score(y_test, y_pred, average="weighted", zero_division=0),
+                        "Recall": recall_score(y_test, y_pred, average="weighted"),
+                        "F1-score": f1_score(y_test, y_pred, average="weighted")
+                    })
+                else:
+                    results.append({
+                        "Model": name,
+                        "RMSE": mean_squared_error(y_test, y_pred, squared=False),
+                        "MAE": mean_absolute_error(y_test, y_pred),
+                        "R2": r2_score(y_test, y_pred)
+                    })
+
+            results_df = pd.DataFrame(results)
+            st.session_state['trained_models'] = trained_models
+            st.session_state['model_results'] = results_df
+
+            st.markdown("## 📊 Rezultate modele")
+            st.dataframe(results_df, use_container_width=True)
 
 
 if __name__ == "__main__":
