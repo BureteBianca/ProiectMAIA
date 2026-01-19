@@ -1295,8 +1295,6 @@ def show_preprocessing_pipeline():
 
     test_size = st.slider("Test size:", 0.1, 0.5, 0.2)
 
-    test_size = st.slider("Test size:", 0.1, 0.5, 0.2)
-
     if problem_type == "Clasificare" and y.value_counts().min() >= 2:
         stratify_option = y
     else:
