@@ -1581,37 +1581,75 @@ def show_models():
                 random_state=42
             )
 
+    # -------------------- TRAIN MODELS --------------------
     if st.button("🚀 Train Models", type="primary", key="train_models_btn"):
 
         trained_models = []
+        results = []
 
-        st.subheader("📦 Modele antrenate")
+        X_test = st.session_state["X_test"]
+        y_test = st.session_state["y_test"]
 
         for name, model in model_configs.items():
+
             full_pipeline = Pipeline([
                 ("preprocessor", base_pipeline),
                 ("model", model)
             ])
 
             full_pipeline.fit(X_train, y_train)
+            y_pred = full_pipeline.predict(X_test)
 
             trained_models.append({
                 "Model": name,
-                "Parameters": model.get_params()
+                "Pipeline": full_pipeline
             })
 
-        trained_df = pd.DataFrame(trained_models)
+            # -------- METRICI --------
+            if problem_type == "Clasificare":
+                row = {
+                    "Model": name,
+                    "Accuracy": accuracy_score(y_test, y_pred),
+                    "Precision": precision_score(y_test, y_pred, average="weighted", zero_division=0),
+                    "Recall": recall_score(y_test, y_pred, average="weighted"),
+                    "F1": f1_score(y_test, y_pred, average="weighted")
+                }
 
-        st.session_state['trained_models'] = {
-            row["Model"]: Pipeline([
-                ("preprocessor", base_pipeline),
-                ("model", model_configs[row["Model"]])
-            ])
-            for row in trained_df.to_dict("records")
+                if y_test.nunique() == 2 and hasattr(full_pipeline, "predict_proba"):
+                    y_proba = full_pipeline.predict_proba(X_test)[:, 1]
+                    row["ROC-AUC"] = roc_auc_score(y_test, y_proba)
+                else:
+                    row["ROC-AUC"] = None
+
+            else:
+                row = {
+                    "Model": name,
+                    "MAE": mean_absolute_error(y_test, y_pred),
+                    "RMSE": mean_squared_error(y_test, y_pred, squared=False),
+                    "R2": r2_score(y_test, y_pred)
+                }
+
+            results.append(row)
+
+        # -------------------- DATAFRAME CURAT --------------------
+        results_df = pd.DataFrame(results)
+
+        if problem_type == "Clasificare":
+            cols = ["Model", "Accuracy", "Precision", "Recall", "F1", "ROC-AUC"]
+        else:
+            cols = ["Model", "MAE", "RMSE", "R2"]
+
+        results_df = results_df[cols]
+        results_df[cols[1:]] = results_df[cols[1:]].astype(float).round(3)
+
+        st.session_state["trained_models"] = {
+            m["Model"]: m["Pipeline"] for m in trained_models
         }
 
-        st.success("✅ Modelele au fost antrenate cu succes!")
-        st.dataframe(trained_df, use_container_width=True)
+        st.subheader("📊 Rezultate modele")
+        st.dataframe(results_df, use_container_width=True)
+
+        st.success("✅ Modelele au fost antrenate și evaluate!")
 
 
 def show_evaluation():
