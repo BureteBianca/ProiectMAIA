@@ -1404,46 +1404,79 @@ def show_train_test_split():
 
         st.success("Split Train / Test realizat!")
 
+
     else:
+
         test_size = st.slider(
+
             "Proporție Test:",
+
             0.1,
+
             0.4,
+
             0.2,
+
             key="test_size_split_3way"
+
         )
 
         val_size = st.slider(
+
             "Proporție Validation:",
+
             0.1,
+
             0.4,
+
             0.2,
+
             key="val_size_split"
+
         )
 
+
         X_temp, X_test, y_temp, y_test = train_test_split(
+
             X,
+
             y,
+
             test_size=test_size,
+
             random_state=random_state,
-            stratify=stratify_option
+
+            stratify=y if stratify_option is not None else None
+
         )
 
         val_ratio_adjusted = val_size / (1 - test_size)
 
+
         X_train, X_val, y_train, y_val = train_test_split(
+
             X_temp,
+
             y_temp,
+
             test_size=val_ratio_adjusted,
+
             random_state=random_state,
-            stratify=stratify_option if stratify_option is not None else None
+
+            stratify=y_temp if stratify_option is not None else None
+
         )
 
         st.session_state['X_train'] = X_train
+
         st.session_state['X_val'] = X_val
+
         st.session_state['X_test'] = X_test
+
         st.session_state['y_train'] = y_train
+
         st.session_state['y_val'] = y_val
+
         st.session_state['y_test'] = y_test
 
         st.success("Split Train / Validation / Test realizat!")
