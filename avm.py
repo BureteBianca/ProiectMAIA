@@ -1364,6 +1364,10 @@ def show_train_test_split():
         key="split_type_radio"
     )
 
+    if split_type == "Train / Test":
+        st.session_state.pop("X_val", None)
+        st.session_state.pop("y_val", None)
+
     random_state = st.number_input(
         "Random state:",
         min_value=0,
@@ -1381,6 +1385,7 @@ def show_train_test_split():
         st.info("Fără stratificare (regresie sau clase rare).")
 
     if split_type == "Train / Test":
+
         test_size = st.slider(
             "Proporție Test:",
             0.1,
